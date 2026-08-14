@@ -87,17 +87,12 @@ userSchema.virtual('followingCount', {
 userSchema.index({ username: 1, email: 1 });
 
 // Pre-save middleware: hash password before saving
-userSchema.pre('save', async function (next) {
+userSchema.pre('save', async function () {
     // Only hash if password is modified
-    if (!this.isModified('password')) return next();
+    if (!this.isModified('password')) return;
 
-    try {
-        const salt = await genSalt(12);
-        this.password = await hash(this.password, salt);
-        next();
-    } catch (err) {
-        next(err);
-    }
+    const salt = await genSalt(12);
+    this.password = await hash(this.password, salt);
 });
 
 // Instance method: compare candidate password with stored hash

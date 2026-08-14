@@ -58,7 +58,7 @@ export const env = {
     // Base URL of the deployed frontend, used to build the links embedded
     // in verification/reset/unsubscribe emails (e.g. `${clientUrl}/verify-email/:token`).
     // Falls back to localhost so local dev doesn't need a .env entry to run.
-    clientUrl: process.env.CLIENT_URL || "http://localhost:3000",
+    clientUrl: process.env.CLIENT_URL || "http://localhost:5173",
     nodeEnv: process.env.NODE_ENV
 };
 
@@ -66,7 +66,7 @@ export const env = {
 // CORS configuration — restrict which origins may call this API
 // -----------------------------------------------------------------
 export const corsOptions = {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

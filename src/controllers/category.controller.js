@@ -2,7 +2,7 @@ import asyncHandler from 'express-async-handler';
 import Category from '../models/Category.js';
 import Post from '../models/Post.js';
 import AppError from '../utils/AppError.js';
-import slugify from '../utils/slugify.js';
+import { slugify } from '../utils/slugify.js';
 
 /**
  * category.controller.js

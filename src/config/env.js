@@ -11,8 +11,9 @@ export const env = {
         apiSecret: process.env.CLOUDINARY_API_SECRET,
     },
     stripe:{
-        secretKey:process.env.STRIPE_SECRET_KEY,
-        webHookSecret: process.env.STRIPE_WEBHOOK_SECRET
+        secretKey: process.env.STRIPE_SECRET_KEY,
+        webHookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+        webhookSecret: process.env.STRIPE_WEBHOOK_SECRET
     },
 
     // -----------------------------------------------------------------

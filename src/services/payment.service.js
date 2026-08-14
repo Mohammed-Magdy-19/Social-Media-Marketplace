@@ -1,6 +1,7 @@
 import stripe from "../integrations/stripe.js";
 import Payment from "../models/Payment.js";
 import AppError from "../utils/AppError.js";
+import { env } from "../config/env.js";
 
 /**
  * Creates a Stripe PaymentIntent and a matching "pending" Payment
@@ -64,7 +65,7 @@ export const verifyWebhookSignature = (rawBody, signatureHeader) => {
         return stripe.webhooks.constructEvent(
             rawBody,
             signatureHeader,
-            process.env.STRIPE_WEBHOOK_SECRET
+            env.stripe?.webhookSecret || process.env.STRIPE_WEBHOOK_SECRET
         );
     } catch (error) {
         throw new AppError(`Webhook signature verification failed: ${error.message}`, 400);

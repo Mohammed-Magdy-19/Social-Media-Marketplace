@@ -26,7 +26,9 @@ import { env } from "../config/env.js";
  *     env.stripe.webhookSecret
  *   );
  */
-const stripe = new Stripe(env.stripe.secretKey, {
+const apiKey = env.stripe?.secretKey || process.env.STRIPE_SECRET_KEY || "sk_test_placeholder";
+
+const stripe = new Stripe(apiKey, {
     apiVersion: "2024-06-20",
 });
 

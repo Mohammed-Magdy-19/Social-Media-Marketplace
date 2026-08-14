@@ -31,6 +31,7 @@ import morgan from 'morgan';
 import { corsOptions } from './config/env.js';
 import apiRouter from './routes/index.js';
 import { errorHandlingMiddleware, notFoundHandler } from './middleware/errorHandler.middleware.js';
+import { handleStripeWebhook } from './controllers/payment.controller.js';
 
 const app = express();
 
@@ -42,7 +43,7 @@ const app = express();
 app.post(
     '/api/payments/webhook',
     raw({ type: 'application/json' }),
-    require('./controllers/payment.controller').handleStripeWebhook
+    handleStripeWebhook
 );
 
 // ---------------------------------------------------------------------------
@@ -115,3 +116,4 @@ app.use(notFoundHandler);
 app.use(errorHandlingMiddleware);
 
 export default app;
+export const set = app.set.bind(app);

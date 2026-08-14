@@ -12,7 +12,7 @@
 import { env } from './config/env.js';
 
 import { createServer } from 'http';
-import app, { set } from './app';
+import app, { set } from './app.js';
 import connectDB from './config/db.js';
 import { initSocket } from './config/socket.js';
 

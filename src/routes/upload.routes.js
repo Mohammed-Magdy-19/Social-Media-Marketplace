@@ -23,7 +23,7 @@ const router = Router();
 router.post(
     '/avatar',
     protect,
-    avatarUpload.single('avatar'),
+    avatarUpload,
     uploadAvatar
 );
 

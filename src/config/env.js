@@ -10,6 +10,10 @@ export const env = {
         apiKey: process.env.CLOUDINARY_API_KEY,
         apiSecret: process.env.CLOUDINARY_API_SECRET,
     },
+    stripe:{
+        secretKey:process.env.STRIPE_SECRET_KEY,
+        webHookSecret: process.env.STRIPE_WEBHOOK_SECRET
+    },
 
     // -----------------------------------------------------------------
     // Rate limiting configuration

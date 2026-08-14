@@ -5,18 +5,18 @@
 
 import { Router } from 'express';
 
-import authRoutes from './auth.routes';
-import userRoutes from './user.routes';
-import postRoutes from './post.routes';
-import categoryRoutes from './category.routes';
-import commentRoutes from './comment.routes';
-import notificationRoutes from './notification.routes';
-import uploadRoutes from './upload.routes';
-import conversationRoutes from './conversation.routes';
-import messageRoutes from './message.routes';
-import paymentRoutes from './payment.routes';
-import reportRoutes from './report.routes';
-import adminRoutes from './admin.routes';
+import authRoutes from './auth.routes.js';
+import userRoutes from './user.routes.js';
+import postRoutes from './post.routes.js';
+import categoryRoutes from './category.routes.js';
+import commentRoutes from './comment.routes.js';
+import notificationRoutes from './notification.routes.js';
+import uploadRoutes from './upload.routes.js';
+import conversationRoutes from './conversation.routes.js';
+import messageRoutes from './message.routes.js';
+import paymentRoutes from './payment.routes.js';
+import reportRoutes from './report.routes.js';
+import adminRoutes from './admin.routes.js';
 
 const router = Router();
 

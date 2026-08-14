@@ -1,5 +1,5 @@
 import multer from "multer";
-import AppError from "../utils/appError.js";
+import AppError from "../utils/AppError.js";
 
 /**
  * Upload Middleware — Multer configuration + file validation rules

@@ -1,5 +1,5 @@
 import rateLimit from "express-rate-limit";
-import AppError from "../utils/appError.js";
+import AppError from "../utils/AppError.js";
 import { env } from "../config/env.js";
 
 /**

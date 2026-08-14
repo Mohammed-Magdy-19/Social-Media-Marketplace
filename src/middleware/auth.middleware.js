@@ -1,6 +1,6 @@
 import asyncHandler from 'express-async-handler';
 import { verifyToken } from "../utils/generateToken.js";
-import AppError from "../utils/appError.js";
+import AppError from "../utils/AppError.js";
 import User from "../models/User.js";
 
 /**

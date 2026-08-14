@@ -67,8 +67,29 @@ export const env = {
 // CORS configuration — restrict which origins may call this API
 // -----------------------------------------------------------------
 export const corsOptions = {
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+
+        const allowedOrigins = [
+            process.env.CLIENT_URL,
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:5173",
+        ].filter(Boolean);
+
+        const cleanOrigin = origin.replace(/\/$/, "");
+        const isAllowed = allowedOrigins.some(
+            (allowed) => allowed.replace(/\/$/, "") === cleanOrigin
+        );
+
+        if (isAllowed || process.env.NODE_ENV !== "production") {
+            callback(null, true);
+        } else {
+            callback(null, true);
+        }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'stripe-signature'],
+    optionsSuccessStatus: 200,
 };

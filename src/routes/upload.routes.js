@@ -14,7 +14,7 @@ import { Router } from 'express';
 import { uploadAvatar, uploadPostMedia, deleteUpload, getUpload } from '../controllers/upload.controller.js';
 
 import { protect } from '../middleware/auth.middleware.js';
-import { avatarUpload, uploadPostMedia } from '../middleware/upload.middleware.js';
+import { avatarUpload, postImagesUpload } from '../middleware/upload.middleware.js';
 
 const router = Router();
 
@@ -28,11 +28,11 @@ router.post(
 );
 
 // POST /api/uploads/posts/:postId — ownership-checked post media upload
-// uploadPostMedia enforces: images only, 10 MB per file, max 5 files per request.
+// postImagesUpload enforces: images only, 10 MB per file, max 5 files per request.
 router.post(
     '/posts/:postId',
     protect,
-    uploadPostMedia.array('media', 5),
+    postImagesUpload,
     uploadPostMedia
 );
 

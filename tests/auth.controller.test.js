@@ -274,6 +274,19 @@ describe('Auth Controller Tests', () => {
       expect(res.body.data.user.email).toBe('newuser@example.com');
     });
 
+    it('should register mido_star test user with valid credentials', async () => {
+      const res = await request(app).post('/api/auth/register').send({
+        username: 'mido_star',
+        email: 'midostar1926@gmail.com',
+        password: 'Mo#12345',
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.body.status).toBe('success');
+      expect(res.body.data.user.username).toBe('mido_star');
+      expect(res.body.data.user.email).toBe('midostar1926@gmail.com');
+    });
+
     it('should reject registration without username', async () => {
       const res = await request(app).post('/api/auth/register').send({
         email: 'test@example.com',

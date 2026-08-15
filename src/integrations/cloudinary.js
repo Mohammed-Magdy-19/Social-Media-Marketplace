@@ -24,10 +24,19 @@ import { env } from "../config/env.js";
  *     return cloudinary.uploader.destroy(publicId);
  *   };
  */
+const { cloudName, apiKey, apiSecret } = env.cloudinary;
+
+if (!cloudName || !apiKey || !apiSecret) {
+    throw new Error(
+        "Missing Cloudinary credentials. Ensure CLOUDINARY_CLOUD_NAME, " +
+        "CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET are set in your .env file."
+    );
+}
+
 cloudinary.config({
-    cloud_name: env.cloudinary.cloudName,
-    api_key: env.cloudinary.apiKey,
-    api_secret: env.cloudinary.apiSecret,
+    cloud_name: cloudName,
+    api_key: apiKey,
+    api_secret: apiSecret,
 });
 
 export default cloudinary;

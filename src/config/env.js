@@ -7,8 +7,10 @@ export const env = {
     jwtSecret: process.env.JWT_SECRET,
     jwtExpiresIn: process.env.JWT_EXPIRES_IN,
     cloudinary: {
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME,
         apiKey: process.env.CLOUDINARY_API_KEY,
         apiSecret: process.env.CLOUDINARY_API_SECRET,
+        defaultAvatarUrl: process.env.CLOUDINARY_DEFAULT_AVATAR_URL,
     },
     stripe:{
         secretKey: process.env.STRIPE_SECRET_KEY,

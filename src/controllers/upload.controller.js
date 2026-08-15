@@ -3,11 +3,17 @@ import File from "../models/File.js";
 import User from "../models/User.js";
 import Post from "../models/Post.js";
 import AppError from "../utils/AppError.js";
+import { env } from "../config/env.js";
 import {
     uploadToCloudinary,
     uploadMultipleToCloudinary,
     deleteFromCloudinary,
 } from "../services/cloudinary.service.js";
+
+// Fallback avatar shown after a user deletes their uploaded avatar.
+// Sourced from CLOUDINARY_DEFAULT_AVATAR_URL in .env so the cloud name
+// and asset path never have to be hardcoded/redeployed to change.
+const DEFAULT_AVATAR_URL = env.cloudinary.defaultAvatarUrl;
 
 /**
  * upload.controller.js
@@ -146,7 +152,7 @@ export const deleteUpload = asyncHandler(async (req, res) => {
 
     if (file.associatedEntity === "avatar") {
         await User.findByIdAndUpdate(file.owner, {
-            avatar: "https://res.cloudinary.com/default/avatar.png",
+            avatar: DEFAULT_AVATAR_URL,
         });
     }
 

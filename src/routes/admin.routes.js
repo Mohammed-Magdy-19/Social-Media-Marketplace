@@ -8,6 +8,8 @@
 import { Router } from 'express';
 
 import { getAllUsers, updateUserRole, updateUserStatus, getDashboardStats, getAuditLogs } from '../controllers/admin.controller.js';
+import { getAllPayments, refundPayment } from '../controllers/payment.controller.js';
+import { getAllConversations } from '../controllers/conversation.controller.js';
 
 import { protect } from '../middleware/auth.middleware.js';
 import { restrictTo } from '../middleware/restrictTo.middleware.js';
@@ -41,5 +43,17 @@ router.get('/dashboard', getDashboardStats);
 
 // GET /api/admin/audit-logs — read-only accountability trail
 router.get('/audit-logs', getAuditLogs);
+
+// GET /api/admin/payments — global transaction listing (admin Payments table)
+router.get('/payments', getAllPayments);
+
+// POST /api/admin/payments/:id/refund — admin-only Stripe refund.
+// (This controller already existed in payment.controller.js but had no
+// route wired to it until now — a dead endpoint the admin Payments
+// "refund" action would have had nowhere to call.)
+router.post('/payments/:id/refund', refundPayment);
+
+// GET /api/admin/conversations — global conversation listing (admin Conversations view)
+router.get('/conversations', getAllConversations);
 
 export default router;

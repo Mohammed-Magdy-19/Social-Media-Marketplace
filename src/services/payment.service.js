@@ -2,6 +2,7 @@ import stripe from "../integrations/stripe.js";
 import Payment from "../models/Payment.js";
 import AppError from "../utils/AppError.js";
 import { env } from "../config/env.js";
+import { getIO } from "../config/socket.js";
 
 /**
  * Creates a Stripe PaymentIntent and a matching "pending" Payment
@@ -84,24 +85,56 @@ export const processWebhookEvent = async (event) => {
     const intent = event.data.object;
 
     switch (event.type) {
-        case "payment_intent.succeeded":
-            await Payment.findOneAndUpdate(
+        case "payment_intent.succeeded": {
+            const payment = await Payment.findOneAndUpdate(
                 { transactionId: intent.id },
-                { status: "completed" }
+                { status: "completed" },
+                { new: true }
             );
+            emitPaymentUpdate(payment);
             break;
+        }
 
-        case "payment_intent.payment_failed":
-            await Payment.findOneAndUpdate(
+        case "payment_intent.payment_failed": {
+            const payment = await Payment.findOneAndUpdate(
                 { transactionId: intent.id },
-                { status: "failed" }
+                { status: "failed" },
+                { new: true }
             );
+            emitPaymentUpdate(payment);
             break;
+        }
 
         default:
             // Unhandled event types are safely ignored — Stripe sends many
             // event types the app doesn't need to act on.
             break;
+    }
+};
+
+/**
+ * Emits a lightweight payment_updated event to the buyer's personal
+ * room ({@link https://socket.io} room `user_<buyerId>`, joined via the
+ * existing `register_user` handler in config/socket.js) so an open tab
+ * can invalidate/refetch the payment ledger the instant Stripe confirms
+ * or rejects a charge, instead of relying on a poll or a stale cache
+ * until the next manual refresh.
+ *
+ * Fire-and-forget by design, same pattern as the feed_update_available
+ * emit in post.controller.js: a socket failure must never fail the
+ * webhook handler, since Stripe already got its 200 acknowledgment.
+ *
+ * @param {import("mongoose").HydratedDocument | null} payment
+ */
+const emitPaymentUpdate = (payment) => {
+    if (!payment) return;
+    try {
+        getIO().to(`user_${payment.buyer}`).emit("payment_updated", {
+            paymentId: payment._id,
+            status: payment.status,
+        });
+    } catch (err) {
+        // Socket layer being unavailable must never fail an already-successful webhook write.
     }
 };
 
@@ -129,6 +162,8 @@ export const refundPayment = async (paymentId) => {
 
     payment.status = "failed"; // or add a dedicated "refunded" enum value to the Payment schema
     await payment.save();
+
+    emitPaymentUpdate(payment);
 
     return payment;
 };

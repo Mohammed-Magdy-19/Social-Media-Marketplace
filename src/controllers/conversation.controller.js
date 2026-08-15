@@ -77,6 +77,29 @@ export const getMyConversations = asyncHandler(async (req, res) => {
 });
 
 /**
+ * GET /api/admin/conversations
+ * [Admin] Lists every conversation on the platform, most recently active
+ * first — powers the admin Conversations view (Vendo Admin PSD §6),
+ * which needs visibility across all threads for moderation, unlike
+ * GET /api/conversations which is scoped to the requester's own.
+ * Route-level restrictTo('admin') in admin.routes.js is what gates this,
+ * not a filter here.
+ */
+export const getAllConversations = asyncHandler(async (req, res) => {
+    const { page, limit, skip } = getPagination(req.query);
+
+    const conversations = await Conversation.find({})
+        .sort({ updatedAt: -1 })
+        .skip(skip)
+        .limit(limit + 1)
+        .populate("participants", "username avatar")
+        .populate({ path: "lastMessage", select: "text sender createdAt" })
+        .lean();
+
+    res.status(200).json(buildPaginatedResponse(conversations, page, limit));
+});
+
+/**
  * GET /api/conversations/:id
  * Returns a single conversation's metadata (participants, last message
  * preview). The full message history for it is fetched separately via

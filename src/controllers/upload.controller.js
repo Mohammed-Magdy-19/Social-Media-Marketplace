@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import Post from "../models/Post.js";
 import AppError from "../utils/AppError.js";
 import { env } from "../config/env.js";
+import { getPagination, buildPaginatedResponse } from "../utils/paginate.js";
 import {
     uploadToCloudinary,
     uploadMultipleToCloudinary,
@@ -165,6 +166,44 @@ export const deleteUpload = asyncHandler(async (req, res) => {
     await file.deleteOne();
 
     res.status(200).json({ status: "success", data: null });
+});
+
+/**
+ * GET /api/uploads
+ * Lists uploaded assets — backs both a personal "my files" view and the
+ * admin Uploads asset grid (Vendo Admin PSD §6.10). Regular users only
+ * ever see their own files, regardless of query params; an `owner`
+ * filter is honored only when the requester is an admin, so this one
+ * route can serve both audiences without leaking other users' files.
+ *
+ * Query params: owner? (admin-only), resourceType?, associatedEntity?, page?, limit?
+ */
+export const getUploads = asyncHandler(async (req, res) => {
+    const { resourceType, associatedEntity, owner } = req.query;
+    const { page, limit, skip } = getPagination(req.query);
+
+    const filter = {};
+
+    if (req.user.role === "admin") {
+        if (owner) filter.owner = owner;
+    } else {
+        // Non-admins can never widen this to another user's files, even
+        // by passing ?owner=<someoneElse> — the filter is always pinned
+        // to the requester's own id.
+        filter.owner = req.user.id;
+    }
+
+    if (resourceType) filter.resourceType = resourceType;
+    if (associatedEntity) filter.associatedEntity = associatedEntity;
+
+    const files = await File.find(filter)
+        .populate("owner", "username avatar")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit + 1)
+        .lean();
+
+    res.status(200).json(buildPaginatedResponse(files, page, limit));
 });
 
 /**

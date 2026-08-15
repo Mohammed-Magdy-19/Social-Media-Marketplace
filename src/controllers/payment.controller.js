@@ -91,6 +91,35 @@ export const getMyPayments = asyncHandler(async (req, res) => {
 });
 
 /**
+ * GET /api/admin/payments
+ * [Admin] Global transaction listing across every buyer — powers the
+ * admin Payments table + webhook feed (Vendo Admin PSD §6). Unlike
+ * GET /api/payments/me, this is intentionally not scoped to req.user.id;
+ * access control lives at the route level via restrictTo('admin') in
+ * admin.routes.js instead of a query filter here.
+ *
+ * Query params: status?, page?, limit?
+ */
+export const getAllPayments = asyncHandler(async (req, res) => {
+    const { status } = req.query;
+    const { page, limit, skip } = getPagination(req.query);
+
+    const filter = {};
+    if (status) filter.status = status;
+
+    const payments = await Payment.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit + 1)
+        .populate("buyer", "username avatar")
+        .populate("seller", "username avatar")
+        .populate("post", "title media")
+        .lean();
+
+    res.status(200).json(buildPaginatedResponse(payments, page, limit));
+});
+
+/**
  * GET /api/payments/:id
  * Returns a single payment's details. Only the buyer, the seller, or an
  * admin may view it — payment records contain financial data that must

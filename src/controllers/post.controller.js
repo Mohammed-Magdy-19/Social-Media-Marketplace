@@ -142,7 +142,13 @@ export const updatePost = asyncHandler(async (req, res) => {
         throw new AppError('Post not found.', 404);
     }
 
-    if (String(post.author) !== String(req.user.id)) {
+    const isOwner = String(post.author) === String(req.user.id);
+    const isAdmin = req.user.role === 'admin';
+
+    // Admin override, matching deletePost's ownership pattern below —
+    // needed for the admin dashboard's post status/moderation actions,
+    // which must be able to act on posts the admin doesn't personally own.
+    if (!isOwner && !isAdmin) {
         throw new AppError('You are not authorized to update this post.', 403);
     }
 

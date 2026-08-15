@@ -11,7 +11,7 @@
 
 import { Router } from 'express';
 
-import { uploadAvatar, uploadPostMedia, deleteUpload, getUpload } from '../controllers/upload.controller.js';
+import { uploadAvatar, uploadPostMedia, deleteUpload, getUpload, getUploads } from '../controllers/upload.controller.js';
 
 import { protect } from '../middleware/auth.middleware.js';
 import { avatarUpload, postImagesUpload } from '../middleware/upload.middleware.js';
@@ -35,6 +35,10 @@ router.post(
     postImagesUpload,
     uploadPostMedia
 );
+
+// GET /api/uploads — list assets: own files for regular users, with an
+// admin-honored `owner` filter for the admin Uploads asset grid
+router.get('/', protect, getUploads);
 
 // DELETE /api/uploads/:id — ownership (uploader or admin) checked asset delete + cleanup
 router.delete('/:id', protect, deleteUpload);

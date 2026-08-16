@@ -1,6 +1,6 @@
 import { Schema, model } from 'mongoose';
 import { genSalt, hash, compare } from 'bcrypt';
-import { env } from '../config/env';
+import { env } from '../config/env.js';
 
 /**
  * User Schema

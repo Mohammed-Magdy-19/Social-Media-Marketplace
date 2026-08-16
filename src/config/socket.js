@@ -59,6 +59,11 @@ export const initSocket = (httpServer) => {
             socket.join(`conversation_${conversationId}`);
         });
 
+        // No dedicated offer_* handlers needed here — offer.controller.js
+        // emits `offer_created` / `offer_updated` to this same
+        // `conversation_<id>` room after each REST write, reusing the
+        // join above rather than requiring a separate join event.
+
         socket.on("typing_message", ({ conversationId, userId }) => {
             socket.to(`conversation_${conversationId}`).emit("typing_message", { userId });
         });

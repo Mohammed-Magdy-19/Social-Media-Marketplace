@@ -3,11 +3,14 @@
 // Pure HTTP REST — fetching history and creating/joining a conversation are
 // standard request/response operations (Backend Architecture Doc, §2.12).
 //
-// The message sub-router is mounted here at /:conversationId/messages so
-// that :conversationId is available to message.routes.js via
-// { mergeParams: true } — matching message.controller.js's actual routes:
+// Two sub-routers are mounted here with { mergeParams: true } so
+// :conversationId is available to them — matching message.routes.js's and
+// offer.routes.js's actual routes:
 //   GET   /api/conversations/:conversationId/messages
 //   PATCH /api/conversations/:conversationId/messages/read
+//   POST  /api/conversations/:conversationId/offers
+//   GET   /api/conversations/:conversationId/offers
+//   PATCH /api/conversations/:conversationId/offers/:offerId
 
 import { Router } from 'express';
 
@@ -22,6 +25,7 @@ import { validate } from '../middleware/validate.middleware.js';
 import { createConversationSchema } from '../validators/conversation.validator.js';
 
 import messageRoutes from './message.routes.js';
+import offerRoutes from './offer.routes.js';
 
 const router = Router();
 
@@ -39,5 +43,8 @@ router.get('/:id', getConversationById);
 
 // Nested message routes — /api/conversations/:conversationId/messages/*
 router.use('/:conversationId/messages', messageRoutes);
+
+// Nested negotiation offer routes — /api/conversations/:conversationId/offers/*
+router.use('/:conversationId/offers', offerRoutes);
 
 export default router;

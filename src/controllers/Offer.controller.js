@@ -124,6 +124,7 @@ export const createOffer = asyncHandler(async (req, res) => {
  * can render the negotiation as a chronological thread of offer cards
  * interleaved with regular messages.
  */
+
 export const getOffers = asyncHandler(async (req, res) => {
     const { conversationId } = req.params;
     await assertParticipant(conversationId, req.user.id);

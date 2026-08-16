@@ -1,5 +1,6 @@
 import { Schema, model } from 'mongoose';
 import { genSalt, hash, compare } from 'bcrypt';
+import { env } from '../config/env';
 
 /**
  * User Schema
@@ -47,7 +48,7 @@ const userSchema = new Schema(
         },
         avatar: {
             type: String,
-            default: 'https://res.cloudinary.com/default/avatar.png',
+            default: env.cloudinary.defaultAvatarUrl,
         },
         bio: {
             type: String,

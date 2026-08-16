@@ -35,6 +35,36 @@ export const getMyNotifications = asyncHandler(async (req, res) => {
 });
 
 /**
+ * GET /api/admin/notifications
+ * [Admin] Platform-wide notification feed — every notification for every
+ * user, not just the admin's own inbox. Distinct from GET /api/notifications
+ * (self-scoped), which is what the bell icon and, currently, the admin
+ * Notifications page both call; wire the admin page to this route instead
+ * if a genuine cross-user moderation feed is what's intended, rather than
+ * the admin's personal notifications under a misleading "all system and
+ * community notifications" label.
+ *
+ * Query params: type? (LIKE|COMMENT|FOLLOW|MESSAGE|NEW_POST), page?, limit?
+ */
+export const getAllNotifications = asyncHandler(async (req, res) => {
+    const { type } = req.query;
+    const { page, limit, skip } = getPagination(req.query);
+
+    const filter = {};
+    if (type) filter.type = type;
+
+    const notifications = await Notification.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit + 1)
+        .populate("sender", "username avatar")
+        .populate("recipient", "username avatar")
+        .lean();
+
+    res.status(200).json(buildPaginatedResponse(notifications, page, limit));
+});
+
+/**
  * GET /api/notifications/unread-count
  * Lightweight, high-frequency query powering the bell-icon badge.
  * Deliberately a single countDocuments call — no population, no sorting.

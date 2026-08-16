@@ -20,6 +20,14 @@ const createPostSchema = z.object({
         category: z
             .string()
             .refine(isValidObjectId, 'Invalid category ID format'),
+        // Optional — omit for a plain social post; set to make the post a
+        // marketplace listing. Smallest currency unit (cents), matching
+        // Payment.amount.
+        price: z
+            .number()
+            .int('Price must be an integer number of cents')
+            .nonnegative('Price cannot be negative')
+            .optional(),
         tags: z
             .array(z.string().trim().min(1).max(30))
             .max(20, 'Cannot have more than 20 tags')
@@ -48,6 +56,16 @@ const updatePostSchema = z.object({
                 .string()
                 .refine(isValidObjectId, 'Invalid category ID format')
                 .optional(),
+            price: z
+                .number()
+                .int('Price must be an integer number of cents')
+                .nonnegative('Price cannot be negative')
+                .optional(),
+            // Schema-level validation only — post.controller.js's
+            // UPDATABLE_FIELDS whitelist is what actually restricts this to
+            // admins; a non-admin author sending `status` has it silently
+            // dropped there, not rejected here.
+            status: z.enum(['active', 'hidden', 'flagged']).optional(),
             tags: z
                 .array(z.string().trim().min(1).max(30))
                 .max(20, 'Cannot have more than 20 tags')
@@ -83,6 +101,9 @@ const searchPostsSchema = z.object({
             .string()
             .refine((val) => !val || isValidObjectId(val), 'Invalid author ID')
             .optional(),
+        // Admin-only in effect: post.controller.js ignores this for
+        // non-admin requesters and always applies status: 'active' instead.
+        status: z.enum(['active', 'hidden', 'flagged']).optional(),
         sort: z
             .enum(['newest', 'oldest', 'most_liked', 'most_commented'])
             .optional()

@@ -10,6 +10,7 @@ import { Router } from 'express';
 import { getAllUsers, updateUserRole, updateUserStatus, getDashboardStats, getAuditLogs } from '../controllers/admin.controller.js';
 import { getAllPayments, refundPayment } from '../controllers/payment.controller.js';
 import { getAllConversations } from '../controllers/conversation.controller.js';
+import { getAllNotifications } from '../controllers/notification.controller.js';
 
 import { protect } from '../middleware/auth.middleware.js';
 import { restrictTo } from '../middleware/restrictTo.middleware.js';
@@ -55,5 +56,12 @@ router.post('/payments/:id/refund', refundPayment);
 
 // GET /api/admin/conversations — global conversation listing (admin Conversations view)
 router.get('/conversations', getAllConversations);
+
+// GET /api/admin/notifications — platform-wide notification feed, distinct
+// from the self-scoped GET /api/notifications. Only meaningful if the
+// admin Notifications page is meant to be a genuine cross-user moderation
+// feed rather than the admin's own personal inbox — confirm intent before
+// pointing the frontend at this instead of the existing self-scoped hook.
+router.get('/notifications', getAllNotifications);
 
 export default router;

@@ -26,7 +26,7 @@ import { getIO } from '../config/socket.js';
  * a post on someone else's behalf.
  */
 export const createPost = asyncHandler(async (req, res) => {
-    const { title, content, category, tags, media } = req.body;
+    const { title, content, category, tags, media, price } = req.body;
 
     if (!title || !content || !category) {
         throw new AppError('title, content, and category are required.', 400);
@@ -45,6 +45,10 @@ export const createPost = asyncHandler(async (req, res) => {
         // uploaded ahead of this call by the Multer/Cloudinary upload middleware.
         media: Array.isArray(media) ? media : [],
         tags: Array.isArray(tags) ? tags : [],
+        // Optional — omitting this makes a plain social post; setting it
+        // makes the post a marketplace listing (Instant Buy/Negotiate
+        // eligible on the frontend). Cents, matching Payment.amount.
+        price: typeof price === 'number' ? price : undefined,
         author: req.user.id,
     });
 
@@ -75,7 +79,7 @@ export const createPost = asyncHandler(async (req, res) => {
  * single route, since they share the same underlying query shape.
  */
 export const getPosts = asyncHandler(async (req, res) => {
-    const { search, category, tag, author, sort } = req.query;
+    const { search, category, tag, author, status, sort } = req.query;
     const { page, limit, skip } = getPagination(req.query);
 
     const filter = {};
@@ -86,6 +90,18 @@ export const getPosts = asyncHandler(async (req, res) => {
     if (category) filter.category = category;
     if (tag) filter.tags = tag;
     if (author) filter.author = author;
+
+    // Non-admins always see active-only, regardless of what they pass —
+    // `status` is only honored for an authenticated admin, and even then
+    // only to narrow to a specific moderation state (e.g. the admin Posts
+    // table's status filter pill); omitting it as an admin still returns
+    // every status, since moderators need to see flagged/hidden posts too.
+    const isAdmin = req.user?.role === 'admin';
+    if (isAdmin) {
+        if (status) filter.status = status;
+    } else {
+        filter.status = 'active';
+    }
 
     // Default sort is newest-first; "mostLiked" is the other supported mode.
     const sortMap = {
@@ -116,6 +132,17 @@ export const getPostById = asyncHandler(async (req, res) => {
         .populate('category', 'name slug');
 
     if (!post) {
+        throw new AppError('Post not found.', 404);
+    }
+
+    const isOwner = req.user && String(post.author._id ?? post.author) === String(req.user.id);
+    const isAdmin = req.user?.role === 'admin';
+
+    // A moderated (hidden/flagged) post stays fully retrievable by its
+    // owner and by admins for review, but is otherwise treated as not
+    // found — matching the standard pattern of not leaking whether a
+    // moderated resource exists to an unrelated visitor.
+    if (post.status !== 'active' && !isOwner && !isAdmin) {
         throw new AppError('Post not found.', 404);
     }
 
@@ -152,11 +179,20 @@ export const updatePost = asyncHandler(async (req, res) => {
         throw new AppError('You are not authorized to update this post.', 403);
     }
 
-    const UPDATABLE_FIELDS = ['title', 'content', 'tags'];
-    for (const field of UPDATABLE_FIELDS) {
+    const OWNER_UPDATABLE_FIELDS = ['title', 'content', 'tags', 'price'];
+    for (const field of OWNER_UPDATABLE_FIELDS) {
         if (req.body[field] !== undefined) {
             post[field] = req.body[field];
         }
+    }
+
+    // `status` is schema-valid on the request (see post.validator.js) but
+    // deliberately not in OWNER_UPDATABLE_FIELDS — an author sending it is
+    // silently ignored here rather than rejected, so a client that mistakenly
+    // includes it doesn't fail the whole update over one stray field. Only
+    // an admin's request actually moves the moderation state.
+    if (isAdmin && req.body.status !== undefined) {
+        post.status = req.body.status;
     }
 
     await post.save();

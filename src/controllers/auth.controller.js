@@ -35,6 +35,18 @@ import { env } from "../config/env.js";
  *     in the response body for clients that manage tokens manually
  *     (e.g. mobile apps), matching auth.validator.js's expectation that
  *     /refresh-token and /logout receive `refreshToken` in req.body.
+ *   - Session hint: a second, NON-httpOnly cookie (`hasSession`) mirrors
+ *     whether a refresh token is currently issued, WITHOUT carrying any
+ *     sensitive value itself — it's just "1" or absent. It exists
+ *     purely so the frontend can check `document.cookie` on boot and
+ *     skip calling /refresh-token entirely when it's absent, instead of
+ *     firing a network request that is guaranteed to 401 for every
+ *     anonymous visitor. It carries no security weight on its own —
+ *     the real gate is still the httpOnly refresh token; this cookie is
+ *     purely a UX/telemetry-noise optimization and must always be kept
+ *     in sync with the real cookie's lifecycle (set together, cleared
+ *     together) rather than trusted as proof of anything by itself.
+ * ---------------------------------------------------------------------
  */
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -51,6 +63,19 @@ const refreshCookieOptions = {
     sameSite: "strict",
     maxAge: REFRESH_TOKEN_TTL_MS,
     path: "/api/auth", // only sent back to auth endpoints that need it
+};
+
+// The hint cookie deliberately uses `path: "/"` (unlike the refresh
+// cookie above) — the frontend needs to read it via document.cookie
+// from anywhere in the app on boot, not just when calling /api/auth/*.
+// httpOnly is deliberately false here; that's the entire point of this
+// cookie's existence.
+const sessionHintCookieOptions = {
+    httpOnly: false,
+    secure: isProduction,
+    sameSite: "strict",
+    maxAge: REFRESH_TOKEN_TTL_MS,
+    path: "/",
 };
 
 /** Strips sensitive/internal fields before a user document goes in a response. */
@@ -70,8 +95,22 @@ const toPublicUser = (user) => ({
 const generateRandomToken = (bytes) => crypto.randomBytes(bytes).toString("hex");
 
 /**
+ * Clears both the refresh token cookie and its readable session-hint
+ * companion in one place, so the two never drift out of sync. Called
+ * on logout and whenever a refresh attempt is rejected.
+ */
+const clearSessionCookies = (res) => {
+    res.clearCookie("refreshToken", { path: "/api/auth" });
+    res.clearCookie("hasSession", { path: "/" });
+};
+
+/**
  * Issues a fresh access + refresh token pair for a user, persists the
- * refresh token, and attaches it to the response as an httpOnly cookie.
+ * refresh token, and attaches it to the response as an httpOnly cookie
+ * — plus the readable `hasSession` hint cookie alongside it, on the
+ * same lifetime, so the frontend can distinguish "no session, don't
+ * even try to refresh" from "a session may exist, worth attempting"
+ * without needing to make a network call to find out.
  * Returns both tokens so the controller can also include them in the
  * JSON body.
  */
@@ -86,6 +125,7 @@ const issueTokens = async (res, user) => {
     });
 
     res.cookie("refreshToken", refreshTokenValue, refreshCookieOptions);
+    res.cookie("hasSession", "1", sessionHintCookieOptions);
 
     return { accessToken, refreshToken: refreshTokenValue };
 };
@@ -167,23 +207,35 @@ export const login = asyncHandler(async (req, res) => {
  * RefreshToken collection, rotates it (delete old, issue new — limits
  * the blast radius if a refresh token is ever stolen), and issues a
  * fresh access token.
+ *
+ * Every rejection branch below clears both the refresh cookie and its
+ * `hasSession` hint before throwing, so a client that already made it
+ * this far (i.e. the hint said "try") doesn't keep re-attempting a
+ * refresh that's guaranteed to keep failing on a future boot.
  */
 export const refreshAccessToken = asyncHandler(async (req, res) => {
     const incomingToken = req.body.refreshToken || req.cookies?.refreshToken;
     if (!incomingToken) {
+        // No hint cookie should exist in this case either (nothing to
+        // clear), but clearing is a harmless no-op if it's already
+        // absent — cheap insurance against the two ever drifting.
+        clearSessionCookies(res);
         throw new AppError("Refresh token is required.", 401);
     }
 
     const storedToken = await RefreshToken.findOne({ token: incomingToken });
     if (!storedToken || storedToken.expiresAt < new Date()) {
+        clearSessionCookies(res);
         throw new AppError("Invalid or expired refresh token. Please log in again.", 401);
     }
 
     const user = await User.findById(storedToken.user);
     if (!user) {
+        clearSessionCookies(res);
         throw new AppError("The user belonging to this token no longer exists.", 401);
     }
     if (user.status === "banned" || user.status === "suspended") {
+        clearSessionCookies(res);
         throw new AppError("This account no longer has access.", 403);
     }
 
@@ -199,7 +251,8 @@ export const refreshAccessToken = asyncHandler(async (req, res) => {
 
 /**
  * POST /api/auth/logout
- * Invalidates the active refresh token in MongoDB and clears the cookie.
+ * Invalidates the active refresh token in MongoDB and clears both the
+ * refresh cookie and its readable session-hint companion.
  */
 export const logout = asyncHandler(async (req, res) => {
     const incomingToken = req.body.refreshToken || req.cookies?.refreshToken;
@@ -208,7 +261,7 @@ export const logout = asyncHandler(async (req, res) => {
         await RefreshToken.deleteOne({ token: incomingToken });
     }
 
-    res.clearCookie("refreshToken", { path: "/api/auth" });
+    clearSessionCookies(res);
 
     res.status(200).json({
         status: "success",
@@ -252,6 +305,12 @@ export const forgotPassword = asyncHandler(async (req, res) => {
  * Validates the token, hashes the new password (via the User pre-save
  * hook), updates the User document, deletes the used token, and revokes
  * every existing refresh token so all other sessions are logged out.
+ *
+ * Also clears this browser's own session cookies, if any — the backend
+ * has just revoked every RefreshToken row for this user, so any cookie
+ * this specific browser happens to be holding is now dead weight; there
+ * is no reason to leave the (now-invalid) hasSession hint telling this
+ * browser a refresh is worth attempting on its next boot.
  */
 export const resetPassword = asyncHandler(async (req, res) => {
     const { token } = req.params;
@@ -274,6 +333,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
     // Force re-login everywhere — a leaked password shouldn't leave old
     // sessions valid after the owner resets it.
     await RefreshToken.deleteMany({ user: user._id });
+    clearSessionCookies(res);
 
     res.status(200).json({
         status: "success",

@@ -21,6 +21,16 @@ import { getPagination, buildPaginatedResponse } from "../utils/paginate.js";
 const ALLOWED_ROLES = ["user", "moderator", "admin"];
 const ALLOWED_STATUSES = ["active", "suspended", "banned"];
 
+// Regex metacharacters that need escaping before user-supplied text is
+// safely embeddable inside a MongoDB $regex. Without this, a search
+// string like "a.*.*.*.*.*.*.*!" (or any pattern with nested
+// quantifiers) can trigger catastrophic backtracking on every request
+// that hits this filter — a single unauthenticated-looking query string
+// becomes a denial-of-service vector against the admin user list. This
+// mirrors the standard "escape-regexp" utility pattern; kept local here
+// since no shared string-utils module was present in the provided files.
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /**
  * GET /api/admin/users
  * Full, paginated list of users including administrative fields
@@ -36,9 +46,13 @@ export const getAllUsers = asyncHandler(async (req, res) => {
     if (role) filter.role = role;
     if (status) filter.status = status;
     if (search) {
+        // Escape before it ever reaches $regex — see escapeRegExp's
+        // comment above. `search` is untrusted admin-supplied input and
+        // must never be interpolated into a regex pattern verbatim.
+        const safeSearch = escapeRegExp(search);
         filter.$or = [
-            { username: { $regex: search, $options: "i" } },
-            { email: { $regex: search, $options: "i" } },
+            { username: { $regex: safeSearch, $options: "i" } },
+            { email: { $regex: safeSearch, $options: "i" } },
         ];
     }
 

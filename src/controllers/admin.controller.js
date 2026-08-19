@@ -62,7 +62,13 @@ export const getAllUsers = asyncHandler(async (req, res) => {
         .limit(limit + 1)
         .lean();
 
-    res.status(200).json(buildPaginatedResponse(users, page, limit));
+    // .lean() bypasses Mongoose's toJSON virtuals, so `id` (the string
+    // alias of `_id`) is absent from the plain objects.  The frontend
+    // uniformly reads `.id`; without this mapping every admin-panel
+    // mutation that references a user row sends `undefined` as the id.
+    const normalized = users.map(({ _id, ...rest }) => ({ id: _id, ...rest }));
+
+    res.status(200).json(buildPaginatedResponse(normalized, page, limit));
 });
 
 /**

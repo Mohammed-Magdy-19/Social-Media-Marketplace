@@ -2,6 +2,8 @@ import { Server } from "socket.io";
 import AppError from "../utils/AppError.js";
 import { verifyToken } from "../utils/generateToken.js";
 import User from "../models/User.js";
+import Message from "../models/Message.js";
+import Conversation from "../models/Conversation.js";
 
 let io;
 
@@ -131,26 +133,96 @@ export const initSocket = (httpServer) => {
             followingIds.forEach((id) => socket.join(`feed_${id}`));
         });
 
-        // ---- Chat-only transient events (never touch MongoDB) ----
-
-        socket.on("join_conversation", (conversationId) => {
-            socket.join(`conversation_${conversationId}`);
+        // ---- Chat events ----
+        socket.on("join_conversation", (data) => {
+            const conversationId = typeof data === "string" ? data : data?.conversationId;
+            if (conversationId) {
+                socket.join(`conversation_${conversationId}`);
+            }
         });
 
-        // No dedicated offer_* handlers needed here — offer.controller.js
-        // emits `offer_created` / `offer_updated` to this same
-        // `conversation_<id>` room after each REST write, reusing the
-        // join above rather than requiring a separate join event.
+        socket.on("leave_conversation", (data) => {
+            const conversationId = typeof data === "string" ? data : data?.conversationId;
+            if (conversationId) {
+                socket.leave(`conversation_${conversationId}`);
+            }
+        });
+
+        // Handle sending a chat message over Socket.io
+        socket.on("send_message", async (data) => {
+            try {
+                const { conversationId, body, text, clientMessageId } = data || {};
+                const messageText = (body || text || "").trim();
+                if (!conversationId || !messageText) return;
+
+                const conversation = await Conversation.findById(conversationId);
+                if (!conversation) return;
+
+                const isParticipant = conversation.participants.some(
+                    (p) => String(p) === String(socket.userId)
+                );
+                if (!isParticipant) return;
+
+                const message = await Message.create({
+                    conversation: conversationId,
+                    sender: socket.userId,
+                    text: messageText,
+                });
+
+                conversation.lastMessage = message._id;
+                await conversation.save();
+
+                await message.populate("sender", "username avatar");
+
+                const payload = {
+                    id: String(message._id),
+                    _id: String(message._id),
+                    messageId: String(message._id),
+                    conversation: String(conversationId),
+                    conversationId: String(conversationId),
+                    sender: {
+                        id: String(socket.userId),
+                        _id: String(socket.userId),
+                        username: message.sender?.username || "User",
+                        avatar: message.sender?.avatar || null,
+                    },
+                    senderId: String(socket.userId),
+                    body: message.text,
+                    text: message.text,
+                    createdAt: message.createdAt.toISOString(),
+                    clientMessageId: clientMessageId || null,
+                    status: "delivered",
+                };
+
+                // Broadcast to everyone in the conversation room (including sender so client gets echo)
+                io.to(`conversation_${conversationId}`).emit("receive_message", payload);
+
+                // Also notify other participants' user rooms to update their unread message badges/preview
+                for (const participantId of conversation.participants) {
+                    if (String(participantId) !== String(socket.userId)) {
+                        io.to(`user_${participantId}`).emit("new_message", payload);
+                    }
+                }
+            } catch (err) {
+                console.error("send_message socket error:", err);
+            }
+        });
 
         // Server-trusted userId (socket.userId) is used here instead of a
         // client-supplied one, so a typing indicator can't be spoofed as
         // coming from a different user than the one actually connected.
-        socket.on("typing_message", ({ conversationId }) => {
-            socket.to(`conversation_${conversationId}`).emit("typing_message", { userId: socket.userId });
+        socket.on("typing_message", (data) => {
+            const conversationId = typeof data === "string" ? data : data?.conversationId;
+            if (conversationId) {
+                socket.to(`conversation_${conversationId}`).emit("typing_message", { conversationId, userId: socket.userId });
+            }
         });
 
-        socket.on("stop_typing_message", ({ conversationId }) => {
-            socket.to(`conversation_${conversationId}`).emit("stop_typing_message", { userId: socket.userId });
+        socket.on("stop_typing_message", (data) => {
+            const conversationId = typeof data === "string" ? data : data?.conversationId;
+            if (conversationId) {
+                socket.to(`conversation_${conversationId}`).emit("stop_typing_message", { conversationId, userId: socket.userId });
+            }
         });
 
         socket.on("typing_comment", ({ postId }) => {

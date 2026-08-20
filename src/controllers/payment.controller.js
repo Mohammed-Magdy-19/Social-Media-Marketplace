@@ -126,7 +126,7 @@ export const getAllPayments = asyncHandler(async (req, res) => {
  * stay scoped to the transacting parties.
  */
 export const getPaymentById = asyncHandler(async (req, res) => {
-    const payment = await Payment.findById(req.params.id)
+    let payment = await Payment.findById(req.params.id)
         .populate("buyer", "username avatar")
         .populate("seller", "username avatar")
         .populate("post", "title media");
@@ -136,11 +136,30 @@ export const getPaymentById = asyncHandler(async (req, res) => {
     }
 
     const isParty =
-        String(payment.buyer?._id) === String(req.user.id) ||
-        String(payment.seller?._id) === String(req.user.id);
+        String(payment.buyer?._id || payment.buyer) === String(req.user.id) ||
+        String(payment.seller?._id || payment.seller) === String(req.user.id);
 
     if (!isParty && req.user.role !== "admin") {
         throw new AppError("You are not authorized to view this payment.", 403);
+    }
+
+    // Resilient reconciliation fallback: if payment is still pending, check Stripe directly
+    // in case the webhook was delayed or unreachable in development.
+    if (payment.status === "pending" && payment.transactionId) {
+        try {
+            const stripeModule = await import("../integrations/stripe.js");
+            const stripe = stripeModule.default;
+            const intent = await stripe.paymentIntents.retrieve(payment.transactionId);
+            if (intent && intent.status === "succeeded") {
+                payment.status = "completed";
+                await payment.save();
+            } else if (intent && intent.status === "canceled") {
+                payment.status = "failed";
+                await payment.save();
+            }
+        } catch (err) {
+            // Ignore Stripe retrieve errors and return existing document
+        }
     }
 
     res.status(200).json({ status: "success", data: { payment } });

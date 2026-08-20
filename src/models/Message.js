@@ -28,7 +28,23 @@ const messageSchema = new Schema(
             type: [String], // Cloudinary asset links
             default: [],
         },
+        /** Optional reference to the message this is replying to. */
+        replyTo: {
+            type: Schema.Types.ObjectId,
+            ref: 'Message',
+            default: null,
+        },
         isRead: {
+            type: Boolean,
+            default: false,
+        },
+        /** True after the sender edits the message body. */
+        isEdited: {
+            type: Boolean,
+            default: false,
+        },
+        /** Soft-delete flag — deleted messages stay in history as placeholders. */
+        isDeleted: {
             type: Boolean,
             default: false,
         },

@@ -151,7 +151,7 @@ export const initSocket = (httpServer) => {
         // Handle sending a chat message over Socket.io
         socket.on("send_message", async (data) => {
             try {
-                const { conversationId, body, text, clientMessageId } = data || {};
+                const { conversationId, body, text, clientMessageId, replyTo } = data || {};
                 const messageText = (body || text || "").trim();
                 if (!conversationId || !messageText) return;
 
@@ -163,16 +163,35 @@ export const initSocket = (httpServer) => {
                 );
                 if (!isParticipant) return;
 
-                const message = await Message.create({
+                const messageData = {
                     conversation: conversationId,
                     sender: socket.userId,
                     text: messageText,
-                });
+                };
+                if (replyTo) messageData.replyTo = replyTo;
+
+                const message = await Message.create(messageData);
 
                 conversation.lastMessage = message._id;
                 await conversation.save();
 
                 await message.populate("sender", "username avatar");
+
+                // Build reply preview if replying to another message
+                let replyPreview = null;
+                if (replyTo) {
+                    const original = await Message.findById(replyTo)
+                        .populate("sender", "username avatar")
+                        .lean();
+                    if (original) {
+                        replyPreview = {
+                            id: String(original._id),
+                            body: original.isDeleted ? "This message was deleted" : original.text,
+                            senderId: String(original.sender?._id || original.sender),
+                            senderName: original.sender?.username || "User",
+                        };
+                    }
+                }
 
                 const payload = {
                     id: String(message._id),
@@ -191,6 +210,9 @@ export const initSocket = (httpServer) => {
                     text: message.text,
                     createdAt: message.createdAt.toISOString(),
                     clientMessageId: clientMessageId || null,
+                    replyTo: replyPreview,
+                    isEdited: false,
+                    isDeleted: false,
                     status: "delivered",
                 };
 
@@ -205,6 +227,62 @@ export const initSocket = (httpServer) => {
                 }
             } catch (err) {
                 console.error("send_message socket error:", err);
+            }
+        });
+
+        // Edit a message — only the sender can edit their own messages
+        socket.on("edit_message", async (data) => {
+            try {
+                const { messageId, conversationId, newBody } = data || {};
+                const newText = (newBody || "").trim();
+                if (!messageId || !conversationId || !newText) return;
+
+                const message = await Message.findById(messageId);
+                if (!message) return;
+                if (String(message.sender) !== String(socket.userId)) return;
+                if (String(message.conversation) !== String(conversationId)) return;
+                if (message.isDeleted) return;
+
+                message.text = newText;
+                message.isEdited = true;
+                await message.save();
+
+                const payload = {
+                    messageId: String(message._id),
+                    conversationId: String(conversationId),
+                    body: message.text,
+                    isEdited: true,
+                };
+
+                io.to(`conversation_${conversationId}`).emit("message_edited", payload);
+            } catch (err) {
+                console.error("edit_message socket error:", err);
+            }
+        });
+
+        // Soft-delete a message — only the sender can delete their own messages
+        socket.on("delete_message", async (data) => {
+            try {
+                const { messageId, conversationId } = data || {};
+                if (!messageId || !conversationId) return;
+
+                const message = await Message.findById(messageId);
+                if (!message) return;
+                if (String(message.sender) !== String(socket.userId)) return;
+                if (String(message.conversation) !== String(conversationId)) return;
+
+                message.text = "";
+                message.isDeleted = true;
+                await message.save();
+
+                const payload = {
+                    messageId: String(message._id),
+                    conversationId: String(conversationId),
+                };
+
+                io.to(`conversation_${conversationId}`).emit("message_deleted", payload);
+            } catch (err) {
+                console.error("delete_message socket error:", err);
             }
         });
 

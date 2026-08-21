@@ -24,8 +24,6 @@ import { likePost, unlikePost, getPostLikers } from '../controllers/like.control
 
 import { savePost, unsavePost } from '../controllers/savedPost.controller.js';
 
-import { uploadPostMedia } from '../controllers/upload.controller.js';
-
 import { protect } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import { createPostSchema, updatePostSchema } from '../validators/post.validator.js';
@@ -41,7 +39,6 @@ const router = Router();
 router.post(
     '/',
     protect,
-    uploadPostMedia,
     validate(createPostSchema),
     createPost
 );

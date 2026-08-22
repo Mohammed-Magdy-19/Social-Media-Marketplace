@@ -132,7 +132,7 @@ export const getFollowing = asyncHandler(async (req, res) => {
  * Builds the personalized home timeline in two steps: (1) collect the
  * IDs the user follows, (2) query Post.find({ author: { $in } }) sorted
  * newest-first with pagination — leaning on the compound index
- * { author: 1, createdAt: -1 } for performance at scale (§2.9).
+ * { author: 1, status: 1, createdAt: -1 } for performance at scale (§2.9).
  */
 export const getMyFeed = asyncHandler(async (req, res) => {
     const { page, limit, skip } = getPagination(req.query);
@@ -146,7 +146,10 @@ export const getMyFeed = asyncHandler(async (req, res) => {
         return res.status(200).json(buildPaginatedResponse([], page, limit));
     }
 
-    const posts = await Post.find({ author: { $in: followingIds } })
+    // status: 'active' is required to leverage the compound index
+    // { author: 1, status: 1, createdAt: -1 } defined on Post.js and to
+    // exclude hidden/flagged posts from the public feed.
+    const posts = await Post.find({ author: { $in: followingIds }, status: 'active' })
         .populate('author', 'username avatar')
         .populate('category', 'name slug')
         .sort({ createdAt: -1 })
@@ -155,4 +158,4 @@ export const getMyFeed = asyncHandler(async (req, res) => {
         .lean();
 
     res.status(200).json(buildPaginatedResponse(posts, page, limit));
-});
+});

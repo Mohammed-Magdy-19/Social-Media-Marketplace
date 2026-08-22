@@ -1,5 +1,6 @@
 import stripe from "../integrations/stripe.js";
 import Payment from "../models/Payment.js";
+import User from "../models/User.js";
 import AppError from "../utils/AppError.js";
 import { env } from "../config/env.js";
 import { getIO } from "../config/socket.js";
@@ -28,10 +29,12 @@ import { getIO } from "../config/socket.js";
 export const createPaymentIntent = async ({ amount, currency, buyerId, postId }) => {
     let session;
     const clientUrl = env.clientUrl || process.env.CLIENT_URL || "http://localhost:5173";
+    const buyer = await User.findById(buyerId).select("email").lean();
     try {
         session = await stripe.checkout.sessions.create({
             ui_mode: "elements",
             mode: "payment",
+            customer_email: buyer?.email || undefined,
             return_url: `${clientUrl}/checkout?session_id={CHECKOUT_SESSION_ID}`,
             line_items: [
                 {

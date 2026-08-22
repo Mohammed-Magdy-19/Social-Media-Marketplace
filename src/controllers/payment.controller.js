@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import asyncHandler from 'express-async-handler';
 import Payment from "../models/Payment.js";
 import AppError from "../utils/AppError.js";
@@ -126,7 +127,10 @@ export const getAllPayments = asyncHandler(async (req, res) => {
  * stay scoped to the transacting parties.
  */
 export const getPaymentById = asyncHandler(async (req, res) => {
-    let payment = await Payment.findById(req.params.id)
+    const isObjectId = mongoose.isValidObjectId(req.params.id);
+    let payment = await Payment.findOne(
+        isObjectId ? { _id: req.params.id } : { transactionId: req.params.id }
+    )
         .populate("buyer", "username avatar")
         .populate("seller", "username avatar")
         .populate("post", "title media");
@@ -149,13 +153,24 @@ export const getPaymentById = asyncHandler(async (req, res) => {
         try {
             const stripeModule = await import("../integrations/stripe.js");
             const stripe = stripeModule.default;
-            const intent = await stripe.paymentIntents.retrieve(payment.transactionId);
-            if (intent && intent.status === "succeeded") {
-                payment.status = "completed";
-                await payment.save();
-            } else if (intent && intent.status === "canceled") {
-                payment.status = "failed";
-                await payment.save();
+            if (payment.transactionId.startsWith("cs_")) {
+                const session = await stripe.checkout.sessions.retrieve(payment.transactionId);
+                if (session && session.payment_status === "paid") {
+                    payment.status = "completed";
+                    await payment.save();
+                } else if (session && session.status === "expired") {
+                    payment.status = "failed";
+                    await payment.save();
+                }
+            } else {
+                const intent = await stripe.paymentIntents.retrieve(payment.transactionId);
+                if (intent && intent.status === "succeeded") {
+                    payment.status = "completed";
+                    await payment.save();
+                } else if (intent && intent.status === "canceled") {
+                    payment.status = "failed";
+                    await payment.save();
+                }
             }
         } catch (err) {
             // Ignore Stripe retrieve errors and return existing document

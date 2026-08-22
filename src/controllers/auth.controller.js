@@ -2,13 +2,12 @@ import asyncHandler from 'express-async-handler';
 import crypto from "crypto";
 import User from "../models/User.js";
 import RefreshToken from "../models/RefreshToken.js";
-import EmailVerificationToken from "../models/EmailVerificationToken.js";
+
 import PasswordResetToken from "../models/PasswordResetToken.js";
 import AppError from "../utils/AppError.js";
 import { signToken } from "../utils/generateToken.js";
 import {
     sendWelcomeEmail,
-    sendVerificationEmail,
     sendPasswordResetEmail,
 } from "../services/email.service.js";
 import { env } from "../config/env.js";
@@ -50,7 +49,6 @@ import { env } from "../config/env.js";
  */
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const VERIFICATION_TOKEN_BYTES = 32;
 const RESET_TOKEN_BYTES = 32;
 
 const isProduction = env.nodeEnv === "production";
@@ -147,20 +145,11 @@ export const register = asyncHandler(async (req, res) => {
 
     const user = await User.create({ username, email, password });
 
-    const verificationToken = generateRandomToken(VERIFICATION_TOKEN_BYTES);
-    await EmailVerificationToken.create({
-        token: verificationToken,
-        user: user._id,
-    });
-
-    // Best-effort: a temporary email outage should not fail registration.
-    // The user can always request a fresh link via /resend-verification.
+    // Best-effort: email outage must not fail registration.
     try {
-        await sendVerificationEmail(user, verificationToken);
         await sendWelcomeEmail(user);
     } catch (err) {
-        // Swallow — registration already succeeded and is persisted.
-        console.error("Failed to send registration emails:", err.message);
+        console.error("Failed to send welcome email:", err.message);
     }
 
     // Issue a full session immediately so the client can auto-login after
@@ -169,7 +158,7 @@ export const register = asyncHandler(async (req, res) => {
 
     res.status(201).json({
         status: "success",
-        message: "Account created. Please check your email to verify your account.",
+        message: "Account created! Welcome aboard 🎉",
         data: {
             user: toPublicUser(user),
             accessToken,
@@ -177,6 +166,7 @@ export const register = asyncHandler(async (req, res) => {
         },
     });
 });
+
 
 
 /**

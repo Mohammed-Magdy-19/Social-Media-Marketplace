@@ -61,7 +61,7 @@ export const env = {
     // Base URL of the deployed frontend, used to build the links embedded
     // in verification/reset/unsubscribe emails (e.g. `${clientUrl}/verify-email/:token`).
     // Falls back to localhost so local dev doesn't need a .env entry to run.
-    clientUrl: process.env.CLIENT_URL || "http://localhost:5173",
+    clientUrl: process.env.CLIENT_URL || "https://social-media-marketplace-five.vercel.app",
     nodeEnv: process.env.NODE_ENV
 };
 
@@ -74,6 +74,7 @@ export const corsOptions = {
 
         const allowedOrigins = [
             process.env.CLIENT_URL,
+            "https://social-media-marketplace-five.vercel.app",
             "http://localhost:5173",
             "http://localhost:3000",
             "http://127.0.0.1:5173",

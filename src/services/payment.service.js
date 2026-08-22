@@ -26,16 +26,16 @@ import { getIO } from "../config/socket.js";
  * @param {string} params.buyerId   - ObjectId of the purchasing user
  * @param {string} [params.postId]  - the marketplace listing being purchased
  */
-export const createPaymentIntent = async ({ amount, currency, buyerId, postId }) => {
+export const createPaymentIntent = async ({ amount, currency, buyerId, postId, clientUrl: customClientUrl }) => {
     let session;
-    const clientUrl = env.clientUrl || process.env.CLIENT_URL || "http://localhost:5173";
+    const clientUrl = customClientUrl || env.clientUrl || process.env.CLIENT_URL || "https://social-media-marketplace-five.vercel.app";
     const buyer = await User.findById(buyerId).select("email").lean();
     try {
         session = await stripe.checkout.sessions.create({
             ui_mode: "elements",
             mode: "payment",
             customer_email: buyer?.email || undefined,
-            return_url: `${clientUrl}/checkout?session_id={CHECKOUT_SESSION_ID}`,
+            return_url: `${clientUrl.replace(/\/$/, "")}/checkout?session_id={CHECKOUT_SESSION_ID}`,
             line_items: [
                 {
                     price_data: {

@@ -27,10 +27,12 @@ import { getIO } from "../config/socket.js";
  */
 export const createPaymentIntent = async ({ amount, currency, buyerId, postId }) => {
     let session;
+    const clientUrl = env.clientUrl || process.env.CLIENT_URL || "http://localhost:5173";
     try {
         session = await stripe.checkout.sessions.create({
             ui_mode: "elements",
             mode: "payment",
+            return_url: `${clientUrl}/checkout?session_id={CHECKOUT_SESSION_ID}`,
             line_items: [
                 {
                     price_data: {

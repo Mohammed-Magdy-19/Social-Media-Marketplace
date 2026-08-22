@@ -163,12 +163,21 @@ export const register = asyncHandler(async (req, res) => {
         console.error("Failed to send registration emails:", err.message);
     }
 
+    // Issue a full session immediately so the client can auto-login after
+    // registration without requiring a separate /login round-trip.
+    const { accessToken, refreshToken } = await issueTokens(res, user);
+
     res.status(201).json({
         status: "success",
         message: "Account created. Please check your email to verify your account.",
-        data: { user: toPublicUser(user) },
+        data: {
+            user: toPublicUser(user),
+            accessToken,
+            refreshToken,
+        },
     });
 });
+
 
 /**
  * POST /api/auth/login

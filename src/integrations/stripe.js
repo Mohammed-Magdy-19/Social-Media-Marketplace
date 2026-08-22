@@ -28,8 +28,6 @@ import { env } from "../config/env.js";
  */
 const apiKey = env.stripe?.secretKey || process.env.STRIPE_SECRET_KEY || "sk_test_placeholder";
 
-const stripe = new Stripe(apiKey, {
-    apiVersion: "2024-06-20",
-});
+const stripe = new Stripe(apiKey);
 
 export default stripe;

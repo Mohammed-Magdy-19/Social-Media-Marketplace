@@ -26,15 +26,27 @@ import { getIO } from "../config/socket.js";
  * @param {string} [params.postId]  - the marketplace listing being purchased
  */
 export const createPaymentIntent = async ({ amount, currency, buyerId, postId }) => {
-    let intent;
+    let session;
     try {
-        intent = await stripe.paymentIntents.create({
-            amount,
-            currency,
+        session = await stripe.checkout.sessions.create({
+            ui_mode: "elements",
+            mode: "payment",
+            line_items: [
+                {
+                    price_data: {
+                        currency: currency.toLowerCase(),
+                        product_data: {
+                            name: "Marketplace Listing Purchase",
+                        },
+                        unit_amount: Math.round(amount),
+                    },
+                    quantity: 1,
+                },
+            ],
             metadata: { buyerId: String(buyerId), postId: String(postId || "") },
         });
     } catch (error) {
-        throw new AppError(`Stripe payment intent failed: ${error.message}`, 502);
+        throw new AppError(`Stripe checkout session failed: ${error.message}`, 502);
     }
 
     const payment = await Payment.create({
@@ -42,24 +54,17 @@ export const createPaymentIntent = async ({ amount, currency, buyerId, postId })
         currency,
         provider: "stripe",
         status: "pending",
-        transactionId: intent.id,
+        transactionId: session.id,
         buyer: buyerId,
     });
 
-    return { clientSecret: intent.client_secret, paymentId: payment._id };
+    return { clientSecret: session.client_secret, paymentId: payment._id };
 };
 
 /**
  * Verifies and parses an incoming Stripe webhook event. Must be called
  * with the RAW request body (express.raw), not the JSON-parsed one, or
  * Stripe's signature check will fail.
- *
- * Usage in payment.controller.js:
- *   export const handleStripeWebhook = catchAsync(async (req, res) => {
- *     const event = verifyWebhookSignature(req.body, req.headers["stripe-signature"]);
- *     await processWebhookEvent(event);
- *     res.status(200).json({ received: true });
- *   });
  */
 export const verifyWebhookSignature = (rawBody, signatureHeader) => {
     try {
@@ -75,19 +80,38 @@ export const verifyWebhookSignature = (rawBody, signatureHeader) => {
 
 /**
  * Applies a verified Stripe event to the matching Payment document.
- * This is the source of truth for payment status — never trust the
- * client to tell you a payment "succeeded"; only Stripe's own webhook
- * confirms that.
+ * Handles both Checkout Sessions and underlying PaymentIntent events.
  *
  * @param {import("stripe").Stripe.Event} event
  */
 export const processWebhookEvent = async (event) => {
-    const intent = event.data.object;
-
     switch (event.type) {
-        case "payment_intent.succeeded": {
+        case "checkout.session.completed": {
+            const session = event.data.object;
             const payment = await Payment.findOneAndUpdate(
-                { transactionId: intent.id },
+                { transactionId: session.id },
+                { status: "completed" },
+                { new: true }
+            );
+            emitPaymentUpdate(payment);
+            break;
+        }
+
+        case "checkout.session.async_payment_failed": {
+            const session = event.data.object;
+            const payment = await Payment.findOneAndUpdate(
+                { transactionId: session.id },
+                { status: "failed" },
+                { new: true }
+            );
+            emitPaymentUpdate(payment);
+            break;
+        }
+
+        case "payment_intent.succeeded": {
+            const intent = event.data.object;
+            const payment = await Payment.findOneAndUpdate(
+                { $or: [{ transactionId: intent.id }, { transactionId: intent.metadata?.sessionId }] },
                 { status: "completed" },
                 { new: true }
             );
@@ -96,8 +120,9 @@ export const processWebhookEvent = async (event) => {
         }
 
         case "payment_intent.payment_failed": {
+            const intent = event.data.object;
             const payment = await Payment.findOneAndUpdate(
-                { transactionId: intent.id },
+                { $or: [{ transactionId: intent.id }, { transactionId: intent.metadata?.sessionId }] },
                 { status: "failed" },
                 { new: true }
             );
@@ -106,8 +131,6 @@ export const processWebhookEvent = async (event) => {
         }
 
         default:
-            // Unhandled event types are safely ignored — Stripe sends many
-            // event types the app doesn't need to act on.
             break;
     }
 };

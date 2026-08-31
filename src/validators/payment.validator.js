@@ -69,5 +69,7 @@ export const createPaymentIntentSchema = z.object({
                 }),
             ])
             .optional(),
+        // Client application base URL (optional, to override redirect links)
+        clientUrl: z.string().url().optional(),
     }),
 });

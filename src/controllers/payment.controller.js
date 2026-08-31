@@ -37,13 +37,13 @@ import {
  * Body: { amount: number (smallest currency unit, e.g. cents), currency: string, postId?: string }
  */
 export const createPaymentIntent = asyncHandler(async (req, res) => {
-    const { amount, currency = "usd", postId, phoneNumber, shippingAddress } = req.body;
+    const { amount, currency = "usd", postId, phoneNumber, shippingAddress, clientUrl: customClientUrl } = req.body;
 
     if (!amount || amount <= 0) {
         throw new AppError("A positive 'amount' (in the smallest currency unit) is required.", 400);
     }
 
-    const clientUrl = env.clientUrl || process.env.CLIENT_URL || "https://social-media-marketplace-five.vercel.app";
+    const clientUrl = customClientUrl || env.clientUrl || process.env.CLIENT_URL || "https://social-media-marketplace-five.vercel.app";
 
     const { clientSecret, paymentId } = await createPaymentIntentService({
         amount,

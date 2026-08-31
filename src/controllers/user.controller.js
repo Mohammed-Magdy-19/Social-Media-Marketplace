@@ -143,7 +143,12 @@ export const listUsers = asyncHandler(async (req, res) => {
 
     if (search) {
         const regex = new RegExp(search.trim(), 'i');
-        filter.$or = [{ username: regex }, { email: regex }];
+        filter.$or = [
+            { username: regex },
+            { email: regex },
+            { firstName: regex },
+            { lastName: regex },
+        ];
     }
 
     if (role) {
@@ -156,11 +161,16 @@ export const listUsers = asyncHandler(async (req, res) => {
 
     // Fetch limit + 1 to cheaply determine hasMore without a separate count query
     const users = await User.find(filter)
-        .select('username email avatar role status isVerified createdAt')
+        .select('username firstName lastName email avatar bio role status isVerified createdAt')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit + 1)
         .lean();
+
+    // Attach virtual name property
+    for (const u of users) {
+        u.name = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username;
+    }
 
     res.status(200).json(buildPaginatedResponse(users, page, limit));
 });

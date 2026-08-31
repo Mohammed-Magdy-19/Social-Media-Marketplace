@@ -51,6 +51,19 @@ const paymentSchema = new Schema(
             ref: 'Post',
             required: false, // Optional: link to the purchased listing
         },
+        buyerPhoneNumber: {
+            type: String,
+            trim: true,
+            required: [true, 'Buyer phone number is required'],
+        },
+        shippingAddress: {
+            street: { type: String, trim: true },
+            city: { type: String, trim: true },
+            state: { type: String, trim: true },
+            postalCode: { type: String, trim: true },
+            country: { type: String, trim: true },
+            fullAddress: { type: String, trim: true },
+        },
         metadata: {
             type: Schema.Types.Mixed,
             default: {},

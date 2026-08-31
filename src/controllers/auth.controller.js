@@ -79,6 +79,10 @@ const sessionHintCookieOptions = {
 /** Strips sensitive/internal fields before a user document goes in a response. */
 const toPublicUser = (user) => ({
     id: user._id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    name: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : (user.username || ""),
+    phoneNumber: user.phoneNumber,
     username: user.username,
     email: user.email,
     role: user.role,
@@ -135,7 +139,7 @@ const issueTokens = async (res, user) => {
  * token + email.
  */
 export const register = asyncHandler(async (req, res) => {
-    const { username, email, password } = req.body;
+    const { firstName, lastName, phoneNumber, username, email, password } = req.body;
 
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
@@ -143,7 +147,7 @@ export const register = asyncHandler(async (req, res) => {
         throw new AppError(`${field} is already in use.`, 409);
     }
 
-    const user = await User.create({ username, email, password });
+    const user = await User.create({ firstName, lastName, phoneNumber, username, email, password });
 
     // Best-effort: email outage must not fail registration.
     try {

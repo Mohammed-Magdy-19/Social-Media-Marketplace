@@ -189,6 +189,9 @@ async function seedDatabase() {
     
     const standardUsersData = [
         {
+            firstName: 'Admin',
+            lastName: 'User',
+            phoneNumber: '+15550000001',
             username: 'admin',
             email: 'admin@example.com',
             password: hashedPassword,
@@ -199,6 +202,9 @@ async function seedDatabase() {
             bio: 'Platform administrator & community guardian.',
         },
         {
+            firstName: 'Moderator',
+            lastName: 'User',
+            phoneNumber: '+15550000002',
             username: 'moderator',
             email: 'moderator@example.com',
             password: hashedPassword,
@@ -209,6 +215,9 @@ async function seedDatabase() {
             bio: 'Community moderator keeping the marketplace safe and fun.',
         },
         {
+            firstName: 'Test',
+            lastName: 'User',
+            phoneNumber: '+15550000003',
             username: 'testuser',
             email: 'testuser@example.com',
             password: hashedPassword,
@@ -240,6 +249,9 @@ async function seedDatabase() {
         } while (usedEmails.has(email));
         usedEmails.add(email);
 
+        const firstName = faker.person.firstName();
+        const lastName = faker.person.lastName();
+        const phoneNumber = faker.phone.number({ style: 'international' });
         const avatar = faker.helpers.arrayElement(AVATAR_URLS);
         const bio = faker.person.bio().slice(0, 150);
         const isVerified = faker.datatype.boolean(0.65); // 65% verified
@@ -250,6 +262,9 @@ async function seedDatabase() {
         ]);
 
         syntheticUsersData.push({
+            firstName,
+            lastName,
+            phoneNumber,
             username,
             email,
             password: hashedPassword,

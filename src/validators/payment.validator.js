@@ -47,5 +47,27 @@ export const createPaymentIntentSchema = z.object({
             .string()
             .regex(objectIdRegex, 'postId must be a valid post ID.')
             .optional(),
+
+        // Buyer phone number (optional in payload if already present on user profile)
+        phoneNumber: z
+            .string()
+            .trim()
+            .regex(/^\+?[0-9\s\-()]{7,20}$/, 'Please provide a valid phone number.')
+            .optional(),
+
+        // Shipping / verified delivery address
+        shippingAddress: z
+            .union([
+                z.string().trim().min(1, 'Address is required.'),
+                z.object({
+                    street: z.string().trim().optional(),
+                    city: z.string().trim().optional(),
+                    state: z.string().trim().optional(),
+                    postalCode: z.string().trim().optional(),
+                    country: z.string().trim().optional(),
+                    fullAddress: z.string().trim().optional(),
+                }),
+            ])
+            .optional(),
     }),
 });

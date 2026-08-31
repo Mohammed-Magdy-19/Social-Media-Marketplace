@@ -26,13 +26,40 @@ import { getIO } from "../config/socket.js";
  * @param {string} params.buyerId   - ObjectId of the purchasing user
  * @param {string} [params.postId]  - the marketplace listing being purchased
  */
-export const createPaymentIntent = async ({ amount, currency, buyerId, postId, clientUrl: customClientUrl }) => {
+export const createPaymentIntent = async ({
+    amount,
+    currency = "usd",
+    buyerId,
+    postId,
+    phoneNumber,
+    shippingAddress,
+    clientUrl: customClientUrl,
+}) => {
+    const buyer = await User.findById(buyerId).select("email phoneNumber firstName lastName").lean();
+    const resolvedPhone = phoneNumber || buyer?.phoneNumber || "";
+
+    const normalizedAddress = typeof shippingAddress === "string"
+        ? { fullAddress: shippingAddress }
+        : typeof shippingAddress === "object" && shippingAddress !== null
+            ? {
+                ...shippingAddress,
+                fullAddress: shippingAddress.fullAddress || [
+                    shippingAddress.street,
+                    shippingAddress.city,
+                    shippingAddress.state,
+                    shippingAddress.postalCode,
+                    shippingAddress.country,
+                ].filter(Boolean).join(", "),
+            }
+            : { fullAddress: "" };
+
     const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         mode: "payment",
         client_reference_id: String(buyerId),
-        success_url: `${env.clientUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${env.clientUrl}/checkout/cancel`,
+        customer_email: buyer?.email || undefined,
+        success_url: `${env.clientUrl || customClientUrl || "https://social-media-marketplace-five.vercel.app"}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${env.clientUrl || customClientUrl || "https://social-media-marketplace-five.vercel.app"}/checkout/cancel`,
         line_items: [
             {
                 price_data: {
@@ -45,16 +72,28 @@ export const createPaymentIntent = async ({ amount, currency, buyerId, postId, c
                 quantity: 1,
             },
         ],
-        metadata: { buyerId: String(buyerId), postId: String(postId || "") },
+        metadata: {
+            buyerId: String(buyerId),
+            postId: String(postId || ""),
+            buyerPhone: String(resolvedPhone),
+            shippingAddress: String(normalizedAddress.fullAddress || ""),
+        },
     });
 
     const payment = await Payment.create({
         amount,
-        currency,
+        currency: currency.toUpperCase(),
         provider: "stripe",
         status: "pending",
         transactionId: session.id,
         buyer: buyerId,
+        post: postId || undefined,
+        buyerPhoneNumber: resolvedPhone,
+        shippingAddress: normalizedAddress,
+        metadata: {
+            buyerPhone: resolvedPhone,
+            shippingAddress: normalizedAddress,
+        },
     });
 
     return { clientSecret: session.client_secret, paymentId: payment._id };

@@ -36,7 +36,7 @@ import {
  * Body: { amount: number (smallest currency unit, e.g. cents), currency: string, postId?: string }
  */
 export const createPaymentIntent = asyncHandler(async (req, res) => {
-    const { amount, currency = "usd", postId } = req.body;
+    const { amount, currency = "usd", postId, phoneNumber, shippingAddress } = req.body;
 
     if (!amount || amount <= 0) {
         throw new AppError("A positive 'amount' (in the smallest currency unit) is required.", 400);
@@ -49,6 +49,8 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
         currency,
         buyerId: req.user.id,
         postId,
+        phoneNumber,
+        shippingAddress,
         clientUrl,
     });
 

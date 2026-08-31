@@ -82,7 +82,7 @@ export const errorHandlingMiddleware = (err, req, res, next) => {
     // ---- stripe: bad parameters sent to the Stripe API (a bug on our side) ----
     else if (err.type === 'StripeInvalidRequestError') {
         statusCode = 400;
-        message = 'Invalid payment request';
+        message = err.message ?? 'Invalid payment request';
     }
 
     // ---- stripe: idempotency key reused with a different request ----

@@ -289,12 +289,7 @@ export const forgotPassword = asyncHandler(async (req, res) => {
     const resetToken = generateRandomToken(RESET_TOKEN_BYTES);
     await PasswordResetToken.create({ token: resetToken, user: user._id });
 
-    try {
-        await sendPasswordResetEmail(user, resetToken);
-    } catch (err) {
-        console.error("Failed to send password reset email:", err.message);
-        throw new AppError("Failed to send reset email. Please try again later.", 502);
-    }
+    await sendPasswordResetEmail(user, resetToken);
 
     res.status(200).json({ status: "success", message: genericMessage });
 });
@@ -392,12 +387,7 @@ export const resendVerification = asyncHandler(async (req, res) => {
         user: user._id,
     });
 
-    try {
-        await sendVerificationEmail(user, verificationToken);
-    } catch (err) {
-        console.error("Failed to send verification email:", err.message);
-        throw new AppError("Failed to send verification email. Please try again later.", 502);
-    }
+    await sendVerificationEmail(user, verificationToken);
 
     res.status(200).json({ status: "success", message: genericMessage });
 });

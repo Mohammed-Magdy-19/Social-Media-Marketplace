@@ -32,17 +32,7 @@ export const savePost = asyncHandler(async (req, res) => {
         throw new AppError('You have already saved this post.', 409);
     }
 
-    let savedPost;
-    try {
-        savedPost = await SavedPost.create({ user: req.user.id, post: postId });
-    } catch (err) {
-        // Race-condition fallback in case two near-simultaneous requests both
-        // pass the pre-check above and hit the unique compound index.
-        if (err.code === 11000) {
-            throw new AppError('You have already saved this post.', 409);
-        }
-        throw err;
-    }
+    const savedPost = await SavedPost.create({ user: req.user.id, post: postId });
 
     res.status(201).json({
         status: 'success',

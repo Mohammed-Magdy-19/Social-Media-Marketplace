@@ -43,16 +43,7 @@ export const followUser = asyncHandler(async (req, res) => {
         throw new AppError('You are already following this user.', 409);
     }
 
-    let follow;
-    try {
-        follow = await Follow.create({ follower: req.user.id, following: targetUserId });
-    } catch (err) {
-        // Race-condition fallback for the unique compound index.
-        if (err.code === 11000) {
-            throw new AppError('You are already following this user.', 409);
-        }
-        throw err;
-    }
+    const follow = await Follow.create({ follower: req.user.id, following: targetUserId });
 
     await createNotification({
         recipient: targetUserId,

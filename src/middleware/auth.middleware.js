@@ -46,21 +46,7 @@ export const protect = asyncHandler(async (req, res, next) => {
         );
     }
 
-    let decoded;
-    try {
-        // Throws JsonWebTokenError / TokenExpiredError on failure.
-        decoded = verifyToken(token);
-    } catch (err) {
-        if (err.name === "TokenExpiredError") {
-            return next(new AppError("Your session has expired. Please log in again.", 401));
-        }
-        if (err.name === "JsonWebTokenError") {
-            return next(new AppError("Invalid authentication token.", 401));
-        }
-        // Any other unexpected verification error — let it propagate to
-        // the centralized error handler.
-        throw err;
-    }
+    const decoded = verifyToken(token);
 
     const currentUser = await User.findById(decoded.id);
     if (!currentUser) {

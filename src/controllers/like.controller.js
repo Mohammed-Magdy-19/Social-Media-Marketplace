@@ -34,17 +34,7 @@ export const likePost = asyncHandler(async (req, res) => {
         throw new AppError('You have already liked this post.', 409);
     }
 
-    let like;
-    try {
-        like = await Like.create({ user: req.user.id, post: postId });
-    } catch (err) {
-        // Race-condition fallback: the unique compound index rejected a
-        // near-simultaneous duplicate insert that slipped past the check above.
-        if (err.code === 11000) {
-            throw new AppError('You have already liked this post.', 409);
-        }
-        throw err;
-    }
+    const like = await Like.create({ user: req.user.id, post: postId });
 
     await Post.findByIdAndUpdate(postId, { $inc: { likesCount: 1 } });
 

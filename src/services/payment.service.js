@@ -27,32 +27,26 @@ import { getIO } from "../config/socket.js";
  * @param {string} [params.postId]  - the marketplace listing being purchased
  */
 export const createPaymentIntent = async ({ amount, currency, buyerId, postId, clientUrl: customClientUrl }) => {
-    let session;
-    const clientUrl = customClientUrl || env.clientUrl || process.env.CLIENT_URL || "https://social-media-marketplace-five.vercel.app";
-    const buyer = await User.findById(buyerId).select("email").lean();
-    try {
-        session = await stripe.checkout.sessions.create({
-            ui_mode: "elements",
-            mode: "payment",
-            customer_email: buyer?.email || undefined,
-            return_url: `${clientUrl.replace(/\/$/, "")}/checkout?session_id={CHECKOUT_SESSION_ID}`,
-            line_items: [
-                {
-                    price_data: {
-                        currency: currency.toLowerCase(),
-                        product_data: {
-                            name: "Marketplace Listing Purchase",
-                        },
-                        unit_amount: Math.round(amount),
+    const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "payment",
+        client_reference_id: String(buyerId),
+        success_url: `${env.clientUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${env.clientUrl}/checkout/cancel`,
+        line_items: [
+            {
+                price_data: {
+                    currency: currency.toLowerCase(),
+                    product_data: {
+                        name: "Marketplace Listing Purchase",
                     },
-                    quantity: 1,
+                    unit_amount: Math.round(amount),
                 },
-            ],
-            metadata: { buyerId: String(buyerId), postId: String(postId || "") },
-        });
-    } catch (error) {
-        throw new AppError(`Stripe checkout session failed: ${error.message}`, 502);
-    }
+                quantity: 1,
+            },
+        ],
+        metadata: { buyerId: String(buyerId), postId: String(postId || "") },
+    });
 
     const payment = await Payment.create({
         amount,
@@ -72,15 +66,11 @@ export const createPaymentIntent = async ({ amount, currency, buyerId, postId, c
  * Stripe's signature check will fail.
  */
 export const verifyWebhookSignature = (rawBody, signatureHeader) => {
-    try {
-        return stripe.webhooks.constructEvent(
-            rawBody,
-            signatureHeader,
-            env.stripe?.webhookSecret || process.env.STRIPE_WEBHOOK_SECRET
-        );
-    } catch (error) {
-        throw new AppError(`Webhook signature verification failed: ${error.message}`, 400);
-    }
+    return stripe.webhooks.constructEvent(
+        rawBody,
+        signatureHeader,
+        env.stripe?.webhookSecret || process.env.STRIPE_WEBHOOK_SECRET
+    );
 };
 
 /**
@@ -182,11 +172,7 @@ export const refundPayment = async (paymentId) => {
         throw new AppError("Only completed payments can be refunded", 400);
     }
 
-    try {
-        await stripe.refunds.create({ payment_intent: payment.transactionId });
-    } catch (error) {
-        throw new AppError(`Stripe refund failed: ${error.message}`, 502);
-    }
+    await stripe.refunds.create({ payment_intent: payment.transactionId });
 
     payment.status = "failed"; // or add a dedicated "refunded" enum value to the Payment schema
     await payment.save();

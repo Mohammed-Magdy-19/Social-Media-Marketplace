@@ -58,9 +58,9 @@ const isProduction = env.nodeEnv === "production";
 const refreshCookieOptions = {
     httpOnly: true,
     secure: isProduction,
-    sameSite: "strict",
+    sameSite: isProduction ? "none" : "lax",
     maxAge: REFRESH_TOKEN_TTL_MS,
-    path: "/api/auth", // only sent back to auth endpoints that need it
+    path: "/",
 };
 
 // The hint cookie deliberately uses `path: "/"` (unlike the refresh
@@ -71,7 +71,7 @@ const refreshCookieOptions = {
 const sessionHintCookieOptions = {
     httpOnly: false,
     secure: isProduction,
-    sameSite: "strict",
+    sameSite: isProduction ? "none" : "lax",
     maxAge: REFRESH_TOKEN_TTL_MS,
     path: "/",
 };

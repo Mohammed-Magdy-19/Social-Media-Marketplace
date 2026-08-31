@@ -28,7 +28,7 @@ export const getMyNotifications = asyncHandler(async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit + 1) // fetch one extra to cheaply compute hasMore — see utils/paginate.js
-        .populate("sender", "username avatar")
+        .populate("sender", "username avatar firstName lastName")
         .lean();
 
     res.status(200).json(buildPaginatedResponse(notifications, page, limit));
@@ -57,8 +57,8 @@ export const getAllNotifications = asyncHandler(async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit + 1)
-        .populate("sender", "username avatar")
-        .populate("recipient", "username avatar")
+        .populate("sender", "username avatar firstName lastName")
+        .populate("recipient", "username avatar firstName lastName")
         .lean();
 
     res.status(200).json(buildPaginatedResponse(notifications, page, limit));

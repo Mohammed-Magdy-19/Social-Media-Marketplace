@@ -72,7 +72,7 @@ export const createNotification = async ({ recipient, sender, type, targetId }) 
 
     // Populate sender's public-facing fields so the emitted payload is
     // immediately renderable on the client without a follow-up fetch.
-    await notification.populate("sender", "username avatar");
+    await notification.populate("sender", "username avatar firstName lastName");
 
     // 2. Push it live to the recipient's private room. If they're not
     //    connected, this simply reaches zero sockets — no error, no cost.

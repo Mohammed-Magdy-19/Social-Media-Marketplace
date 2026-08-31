@@ -22,7 +22,16 @@ import AppError from "../utils/AppError.js";
 
 // Mirrors the Notification schema's `type` enum (§1.5) so a typo here
 // fails fast in development instead of silently writing a bad enum value.
-const NOTIFICATION_TYPES = ["LIKE", "COMMENT", "FOLLOW", "MESSAGE", "NEW_POST"];
+const NOTIFICATION_TYPES = [
+    "LIKE",
+    "COMMENT",
+    "FOLLOW",
+    "MESSAGE",
+    "NEW_POST",
+    "REPORT_RESOLVED",
+    "REPORT_DISMISSED",
+    "MODERATION",
+];
 
 /**
  * Creates a Notification document and emits it in real time to the
@@ -34,11 +43,12 @@ const NOTIFICATION_TYPES = ["LIKE", "COMMENT", "FOLLOW", "MESSAGE", "NEW_POST"];
  * @param {Object} params
  * @param {string|import("mongoose").Types.ObjectId} params.recipient - user receiving the notification
  * @param {string|import("mongoose").Types.ObjectId} params.sender - user who triggered the action
- * @param {"LIKE"|"COMMENT"|"FOLLOW"|"MESSAGE"|"NEW_POST"} params.type
- * @param {string|import("mongoose").Types.ObjectId} params.targetId - related post/comment/etc.
+ * @param {"LIKE"|"COMMENT"|"FOLLOW"|"MESSAGE"|"NEW_POST"|"REPORT_RESOLVED"|"REPORT_DISMISSED"|"MODERATION"} params.type
+ * @param {string|import("mongoose").Types.ObjectId} params.targetId - related post/comment/report/etc.
+ * @param {Object} [params.metadata] - additional contextual metadata (e.g. resolutionNotes, reason)
  * @returns {Promise<import("mongoose").Document>} the created Notification document
  */
-export const createNotification = async ({ recipient, sender, type, targetId }) => {
+export const createNotification = async ({ recipient, sender, type, targetId, metadata = {} }) => {
     if (!recipient || !sender || !type || !targetId) {
         throw new AppError(
             "recipient, sender, type, and targetId are all required to create a notification.",
@@ -67,6 +77,7 @@ export const createNotification = async ({ recipient, sender, type, targetId }) 
         sender,
         type,
         targetId,
+        metadata,
         isRead: false,
     });
 

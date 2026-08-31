@@ -19,7 +19,16 @@ const notificationSchema = new Schema(
         },
         type: {
             type: String,
-            enum: ['LIKE', 'COMMENT', 'FOLLOW', 'MESSAGE', 'NEW_POST'],
+            enum: [
+                'LIKE',
+                'COMMENT',
+                'FOLLOW',
+                'MESSAGE',
+                'NEW_POST',
+                'REPORT_RESOLVED',
+                'REPORT_DISMISSED',
+                'MODERATION',
+            ],
             required: [true, 'Notification type is required'],
         },
         isRead: {

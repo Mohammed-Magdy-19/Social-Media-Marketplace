@@ -4,6 +4,7 @@ import Report from "../models/Report.js";
 import AuditLog from "../models/AuditLog.js";
 import AppError from "../utils/AppError.js";
 import { getPagination, buildPaginatedResponse } from "../utils/paginate.js";
+import { createNotification } from "../services/notification.service.js";
 
 /**
  * report.controller.js
@@ -127,6 +128,34 @@ export const updateReportStatus = asyncHandler(async (req, res) => {
             ipAddress: req.ip,
             userAgent: req.headers["user-agent"],
         });
+    }
+
+    // Send a real-time notification with admin response to the reporter
+    if (report.reporter && (status === "resolved" || status === "dismissed" || status === "reviewed")) {
+        const notifType =
+            status === "resolved"
+                ? "REPORT_RESOLVED"
+                : status === "dismissed"
+                ? "REPORT_DISMISSED"
+                : "MODERATION";
+
+        try {
+            await createNotification({
+                recipient: report.reporter,
+                sender: req.user.id,
+                type: notifType,
+                targetId: report._id,
+                metadata: {
+                    status: report.status,
+                    resolutionNotes: report.resolutionNotes || "",
+                    targetType: report.targetType,
+                    targetId: String(report.targetId),
+                    reason: report.reason,
+                },
+            });
+        } catch (notifErr) {
+            // Swallow socket/notification failure to keep DB write successful
+        }
     }
 
     res.status(200).json({ status: "success", data: { report } });

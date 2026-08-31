@@ -53,7 +53,10 @@ export const createPaymentIntent = async ({
             }
             : { fullAddress: "" };
 
-    const baseUrl = (env.clientUrl || customClientUrl || process.env.CLIENT_URL || "https://social-media-marketplace-five.vercel.app").replace(/\/$/, "");
+    let baseUrl = (customClientUrl || env.clientUrl || process.env.CLIENT_URL || "https://social-media-marketplace-five.vercel.app").replace(/\/$/, "");
+    if (baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1")) {
+        baseUrl = "https://social-media-marketplace-five.vercel.app";
+    }
 
     const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],

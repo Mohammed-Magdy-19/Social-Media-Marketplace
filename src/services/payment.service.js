@@ -56,7 +56,7 @@ export const createPaymentIntent = async ({
     const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         mode: "payment",
-        ui_mode: "custom",
+        ui_mode: "elements",
         return_url: `${env.clientUrl || customClientUrl || "https://social-media-marketplace-five.vercel.app"}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
         client_reference_id: String(buyerId),
         customer_email: buyer?.email || undefined,

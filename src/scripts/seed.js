@@ -706,6 +706,13 @@ async function seedDatabase() {
             { weight: 8, value: 'refunded' },
         ]);
 
+        const street = faker.location.streetAddress();
+        const city = faker.location.city();
+        const state = faker.location.state();
+        const postalCode = faker.location.zipCode();
+        const country = faker.location.country();
+        const fullAddress = `${street}, ${city}, ${state} ${postalCode}, ${country}`;
+
         paymentsData.push({
             amount: post.price,
             currency: 'USD',
@@ -715,9 +722,20 @@ async function seedDatabase() {
             buyer: buyer._id,
             seller: post.author,
             post: post._id,
+            buyerPhoneNumber: buyer.phoneNumber || faker.phone.number({ style: 'international' }),
+            shippingAddress: {
+                street,
+                city,
+                state,
+                postalCode,
+                country,
+                fullAddress,
+            },
             metadata: {
                 postTitle: post.title,
                 customerEmail: buyer.email,
+                buyerPhone: buyer.phoneNumber || '+15550000003',
+                shippingAddress: fullAddress,
             },
             createdAt: faker.date.recent({ days: 25 }),
         });

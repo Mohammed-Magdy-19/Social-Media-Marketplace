@@ -378,6 +378,74 @@
               "item": [
                 {
                   "name": "/api/auth/login",
+                  "event": [
+                    {
+                      "listen": "prerequest",
+                      "script": {
+                        "exec": [
+                          "// Ensure body has valid default credentials if empty or missing\r",
+                          "const defaultEmail = \"admin@example.com\";\r",
+                          "const defaultPassword = \"Password123!\";\r",
+                          "\r",
+                          "try {\r",
+                          "    let body = {};\r",
+                          "    if (pm.request.body && pm.request.body.raw) {\r",
+                          "        body = JSON.parse(pm.request.body.raw);\r",
+                          "    }\r",
+                          "    \r",
+                          "    // If email is missing or empty, set a valid test email\r",
+                          "    if (!body.email || body.email.trim() === \"\") {\r",
+                          "        body.email = defaultEmail;\r",
+                          "    }\r",
+                          "    if (!body.password || body.password.trim() === \"\") {\r",
+                          "        body.password = defaultPassword;\r",
+                          "    }\r",
+                          "\r",
+                          "    pm.request.body.raw = JSON.stringify(body, null, 2);\r",
+                          "} catch (e) {\r",
+                          "    // If raw body was empty or invalid JSON, initialize it properly\r",
+                          "    pm.request.body.update({\r",
+                          "        mode: 'raw',\r",
+                          "        raw: JSON.stringify({\r",
+                          "            email: defaultEmail,\r",
+                          "            password: defaultPassword\r",
+                          "        }, null, 2),\r",
+                          "        options: {\r",
+                          "            raw: { language: 'json' }\r",
+                          "        }\r",
+                          "    });\r",
+                          "}\r",
+                          ""
+                        ],
+                        "type": "text/javascript",
+                        "packages": {},
+                        "requests": {}
+                      }
+                    },
+                    {
+                      "listen": "test",
+                      "script": {
+                        "exec": [
+                          "if (pm.response.code === 200) {\r",
+                          "    const res = pm.response.json();\r",
+                          "    const token = res.data?.accessToken;\r",
+                          "    \r",
+                          "    if (token) {\r",
+                          "        pm.collectionVariables.set(\"bearerToken\", token);\r",
+                          "        console.log(\"✅ Authenticated! bearerToken has been set successfully.\");\r",
+                          "    }\r",
+                          "} else {\r",
+                          "    const err = pm.response.json();\r",
+                          "    console.error(\"❌ Request Failed:\", err.message || err);\r",
+                          "}\r",
+                          ""
+                        ],
+                        "type": "text/javascript",
+                        "packages": {},
+                        "requests": {}
+                      }
+                    }
+                  ],
                   "request": {
                     "method": "POST",
                     "header": [
@@ -388,7 +456,7 @@
                     ],
                     "body": {
                       "mode": "raw",
-                      "raw": "{\n  \"email\": \"any\",\n  \"password\": \"any\"\n}",
+                      "raw": "",
                       "options": {
                         "raw": {
                           "headerFamily": "json",

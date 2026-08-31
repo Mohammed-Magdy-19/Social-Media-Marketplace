@@ -107,15 +107,20 @@ export const createOffer = asyncHandler(async (req, res) => {
         amount,
     });
 
+    // Normalise to plain object with `id` virtual so socket and REST
+    // payloads use the same shape — prevents duplicate-card bugs on the
+    // frontend where dedup relies on `offer.id`.
+    const offerObj = offer.toObject({ virtuals: true });
+
     // Fire-and-forget, same pattern as feed_update_available in
     // post.controller.js — a socket failure must never fail the write.
     try {
-        getIO().to(`conversation_${conversationId}`).emit('offer_created', offer);
+        getIO().to(`conversation_${conversationId}`).emit('offer_created', offerObj);
     } catch (err) {
         // Socket layer being unavailable must never fail an already-successful write.
     }
 
-    res.status(201).json({ status: 'success', data: { offer } });
+    res.status(201).json({ status: 'success', data: { offer: offerObj } });
 });
 
 /**
@@ -189,11 +194,15 @@ export const respondToOffer = asyncHandler(async (req, res) => {
         });
     }
 
+    // Normalise to plain objects with `id` virtual for socket/REST parity.
+    const offerObj = offer.toObject({ virtuals: true });
+    const newOfferObj = newOffer ? newOffer.toObject({ virtuals: true }) : undefined;
+
     try {
-        getIO().to(`conversation_${conversationId}`).emit('offer_updated', { offer, newOffer });
+        getIO().to(`conversation_${conversationId}`).emit('offer_updated', { offer: offerObj, newOffer: newOfferObj });
     } catch (err) {
         // Socket layer being unavailable must never fail an already-successful write.
     }
 
-    res.status(200).json({ status: 'success', data: { offer, newOffer } });
+    res.status(200).json({ status: 'success', data: { offer: offerObj, newOffer: newOfferObj } });
 });

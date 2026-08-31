@@ -12,7 +12,7 @@ import { getUserPosts } from "../controllers/post.controller.js";
 
 import { followUser, unfollowUser, getFollowers, getFollowing, getMyFeed } from '../controllers/follow.controller.js';
 
-import { protect } from '../middleware/auth.middleware.js';
+import { protect, optionalAuth } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import { updateProfileSchema, updatePasswordSchema } from '../validators/user.validator.js';
 
@@ -67,7 +67,7 @@ router.get('/:id/following', getFollowing);
 // ---------------------------------------------------------------------------
 
 // GET /api/users/:userId/posts — a specific user's own posts (separate from the global feed)
-router.get('/:userId/posts', getUserPosts);
+router.get('/:userId/posts', optionalAuth, getUserPosts);
 
 // GET /api/users/:id — public profile (private fields such as email/password/role hidden)
 router.get('/:id', getUserById);

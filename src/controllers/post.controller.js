@@ -2,10 +2,45 @@ import asyncHandler from 'express-async-handler';
 import Post from '../models/Post.js';
 import Comment from '../models/Comment.js';
 import Like from '../models/Like.js';
+import SavedPost from '../models/SavedPost.js';
 import Category from '../models/Category.js';
 import AppError from '../utils/AppError.js';
 import { getPagination, buildPaginatedResponse } from '../utils/paginate.js';
 import { getIO } from '../config/socket.js';
+
+/**
+ * attachInteractionFlags(posts, userId)
+ * Batch-stamps isLiked, isSaved, and saveCount onto an array of lean post
+ * objects for the given user. Called from every list/detail endpoint that
+ * has access to req.user (via protect or optionalAuth).
+ */
+async function attachInteractionFlags(posts, userId) {
+    if (!posts || posts.length === 0 || !userId) return posts;
+
+    const postIds = posts.map((p) => p._id ?? p.id);
+
+    const [likedDocs, savedDocs, savedCounts] = await Promise.all([
+        Like.find({ user: userId, post: { $in: postIds } }).select('post').lean(),
+        SavedPost.find({ user: userId, post: { $in: postIds } }).select('post').lean(),
+        SavedPost.aggregate([
+            { $match: { post: { $in: postIds } } },
+            { $group: { _id: '$post', count: { $sum: 1 } } },
+        ]),
+    ]);
+
+    const likedSet = new Set(likedDocs.map((d) => String(d.post)));
+    const savedSet = new Set(savedDocs.map((d) => String(d.post)));
+    const saveCountMap = new Map(savedCounts.map((d) => [String(d._id), d.count]));
+
+    for (const post of posts) {
+        const pid = String(post._id ?? post.id);
+        post.isLiked = likedSet.has(pid);
+        post.isSaved = savedSet.has(pid);
+        post.saveCount = saveCountMap.get(pid) ?? 0;
+    }
+
+    return posts;
+}
 
 /**
  * post.controller.js
@@ -118,6 +153,10 @@ export const getPosts = asyncHandler(async (req, res) => {
         .limit(limit + 1)
         .lean();
 
+    if (req.user) {
+        await attachInteractionFlags(posts, req.user.id);
+    }
+
     res.status(200).json(buildPaginatedResponse(posts, page, limit));
 });
 
@@ -151,9 +190,19 @@ export const getPostById = asyncHandler(async (req, res) => {
         .sort({ createdAt: -1 })
         .limit(20);
 
+    // Attach interaction flags for the authenticated viewer
+    const postObj = post.toJSON ? post.toJSON() : post;
+    if (req.user) {
+        await attachInteractionFlags([postObj], req.user.id);
+    } else {
+        postObj.isLiked = false;
+        postObj.isSaved = false;
+        postObj.saveCount = 0;
+    }
+
     res.status(200).json({
         status: 'success',
-        data: { post, comments: topLevelComments },
+        data: { post: postObj, comments: topLevelComments },
     });
 });
 
@@ -248,6 +297,10 @@ export const getUserPosts = asyncHandler(async (req, res) => {
         .skip(skip)
         .limit(limit + 1)
         .lean();
+
+    if (req.user) {
+        await attachInteractionFlags(posts, req.user.id);
+    }
 
     res.status(200).json(buildPaginatedResponse(posts, page, limit));
 });

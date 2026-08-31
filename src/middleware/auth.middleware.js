@@ -72,3 +72,41 @@ export const protect = asyncHandler(async (req, res, next) => {
     req.user = currentUser;
     next();
 });
+
+/**
+ * optionalAuth()
+ * ---------------------------------------------------------------------
+ * Non-blocking variant of protect(). Tries to authenticate the request
+ * using the same Bearer / cookie flow, but if no token is present or the
+ * token is invalid, it simply calls next() without setting req.user.
+ *
+ * Use on public GET routes that can optionally personalize the response
+ * when a valid user is identified (e.g. attaching isLiked / isSaved
+ * flags to post responses).
+ */
+export const optionalAuth = asyncHandler(async (req, res, next) => {
+    let token;
+
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+        token = authHeader.split(" ")[1];
+    } else if (req.cookies?.accessToken) {
+        token = req.cookies.accessToken;
+    }
+
+    if (!token) {
+        return next();
+    }
+
+    try {
+        const decoded = verifyToken(token);
+        const currentUser = await User.findById(decoded.id);
+        if (currentUser && currentUser.status !== "banned" && currentUser.status !== "suspended") {
+            req.user = currentUser;
+        }
+    } catch {
+        // Token invalid/expired — continue as unauthenticated
+    }
+
+    next();
+});

@@ -1,10 +1,45 @@
 import asyncHandler from 'express-async-handler';
 import Follow from '../models/Follow.js';
+import Like from '../models/Like.js';
+import SavedPost from '../models/SavedPost.js';
 import User from '../models/User.js';
 import Post from '../models/Post.js';
 import AppError from '../utils/AppError.js';
 import { getPagination, buildPaginatedResponse } from '../utils/paginate.js';
 import { createNotification } from '../services/notification.service.js';
+
+/**
+ * attachInteractionFlags(posts, userId)
+ * Batch-stamps isLiked, isSaved, and saveCount onto an array of lean post
+ * objects for the given user.
+ */
+async function attachInteractionFlags(posts, userId) {
+    if (!posts || posts.length === 0 || !userId) return posts;
+
+    const postIds = posts.map((p) => p._id ?? p.id);
+
+    const [likedDocs, savedDocs, savedCounts] = await Promise.all([
+        Like.find({ user: userId, post: { $in: postIds } }).select('post').lean(),
+        SavedPost.find({ user: userId, post: { $in: postIds } }).select('post').lean(),
+        SavedPost.aggregate([
+            { $match: { post: { $in: postIds } } },
+            { $group: { _id: '$post', count: { $sum: 1 } } },
+        ]),
+    ]);
+
+    const likedSet = new Set(likedDocs.map((d) => String(d.post)));
+    const savedSet = new Set(savedDocs.map((d) => String(d.post)));
+    const saveCountMap = new Map(savedCounts.map((d) => [String(d._id), d.count]));
+
+    for (const post of posts) {
+        const pid = String(post._id ?? post.id);
+        post.isLiked = likedSet.has(pid);
+        post.isSaved = savedSet.has(pid);
+        post.saveCount = saveCountMap.get(pid) ?? 0;
+    }
+
+    return posts;
+}
 
 /**
  * follow.controller.js
@@ -147,6 +182,8 @@ export const getMyFeed = asyncHandler(async (req, res) => {
         .skip(skip)
         .limit(limit + 1)
         .lean();
+
+    await attachInteractionFlags(posts, req.user.id);
 
     res.status(200).json(buildPaginatedResponse(posts, page, limit));
 });

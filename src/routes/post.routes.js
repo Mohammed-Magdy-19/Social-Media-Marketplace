@@ -24,7 +24,7 @@ import { likePost, unlikePost, getPostLikers } from '../controllers/like.control
 
 import { savePost, unsavePost } from '../controllers/savedPost.controller.js';
 
-import { protect } from '../middleware/auth.middleware.js';
+import { protect, optionalAuth } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import { createPostSchema, updatePostSchema } from '../validators/post.validator.js';
 import { createCommentSchema } from '../validators/comment.validator.js';
@@ -44,10 +44,10 @@ router.post(
 );
 
 // GET /api/posts?search=&category=&tag=&author=&sort=&page=&limit= — global feed / search
-router.get('/', getPosts);
+router.get('/', optionalAuth, getPosts);
 
 // GET /api/posts/:id — full detail for one post
-router.get('/:id', getPostById);
+router.get('/:id', optionalAuth, getPostById);
 
 // PATCH /api/posts/:id — ownership-gated partial update
 router.patch('/:id', protect, validate(updatePostSchema), updatePost);

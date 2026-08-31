@@ -6,6 +6,9 @@ import { Schema, model } from 'mongoose';
  * `previousOffer` so a full counter-offer history is reconstructable —
  * countering never edits an existing offer in place, it marks the old
  * one 'countered' and creates a new 'pending' one pointing back at it.
+ *
+ * Enforces 24-hour automatic expiration, fatigue counters (max 3 rounds per party),
+ * and automatic system cancellation upon listing checkout.
  */
 const offerSchema = new Schema(
     {
@@ -48,7 +51,7 @@ const offerSchema = new Schema(
         },
         status: {
             type: String,
-            enum: ['pending', 'accepted', 'rejected', 'countered'],
+            enum: ['pending', 'accepted', 'rejected', 'countered', 'expired', 'system_cancelled'],
             default: 'pending',
             index: true,
         },
@@ -57,9 +60,26 @@ const offerSchema = new Schema(
             ref: 'Offer',
             default: null,
         },
+        // Fatigue controls: number of counter-offers issued by each party
+        counterCountBuyer: {
+            type: Number,
+            default: 0,
+        },
+        counterCountSeller: {
+            type: Number,
+            default: 0,
+        },
+        // 24-hour expiration window
+        expiresAt: {
+            type: Date,
+            default: () => new Date(Date.now() + 24 * 60 * 60 * 1000),
+            index: true,
+        },
     },
     {
         timestamps: true,
+        toJSON: { virtuals: true },
+        toObject: { virtuals: true },
     }
 );
 

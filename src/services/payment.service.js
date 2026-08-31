@@ -2,6 +2,7 @@ import stripe from "../integrations/stripe.js";
 import Payment from "../models/Payment.js";
 import User from "../models/User.js";
 import Post from "../models/Post.js";
+import Offer from "../models/Offer.js";
 import AppError from "../utils/AppError.js";
 import { env } from "../config/env.js";
 import { getIO } from "../config/socket.js";
@@ -146,6 +147,9 @@ export const processWebhookEvent = async (event) => {
                 { new: true }
             );
             emitPaymentUpdate(payment);
+            if (payment?.post) {
+                await fulfillListingPurchase(payment.post);
+            }
             break;
         }
 
@@ -168,6 +172,9 @@ export const processWebhookEvent = async (event) => {
                 { new: true }
             );
             emitPaymentUpdate(payment);
+            if (payment?.post) {
+                await fulfillListingPurchase(payment.post);
+            }
             break;
         }
 
@@ -184,6 +191,32 @@ export const processWebhookEvent = async (event) => {
 
         default:
             break;
+    }
+};
+
+/**
+ * Concurrency resolution (Scenario A):
+ * When a listing purchase is completed, mark post as 'sold' and
+ * gracefully terminate all open pending negotiations on this listing.
+ */
+const fulfillListingPurchase = async (postId) => {
+    try {
+        await Post.findByIdAndUpdate(postId, { status: "sold" });
+
+        const openOffers = await Offer.find({ post: postId, status: "pending" });
+        if (openOffers.length > 0) {
+            await Offer.updateMany({ post: postId, status: "pending" }, { status: "system_cancelled" });
+
+            for (const off of openOffers) {
+                try {
+                    getIO().to(`conversation_${off.conversation}`).emit("offer_updated", {
+                        offer: { ...off.toObject({ virtuals: true }), status: "system_cancelled" },
+                    });
+                } catch (e) {}
+            }
+        }
+    } catch (err) {
+        // Non-critical background cleanup failure
     }
 };
 

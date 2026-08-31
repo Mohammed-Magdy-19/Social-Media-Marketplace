@@ -152,8 +152,11 @@ export const getPaymentById = asyncHandler(async (req, res) => {
         throw new AppError("You are not authorized to view this payment.", 403);
     }
 
+    const isBuyer = String(payment.buyer?._id || payment.buyer) === String(req.user.id);
+    let clientSecret = undefined;
+
     // Resilient reconciliation fallback: if payment is still pending, check Stripe directly
-    // in case the webhook was delayed or unreachable in development.
+    // in case the webhook was delayed or unreachable in development, and retrieve clientSecret for buyer.
     if (payment.status === "pending" && payment.transactionId) {
         try {
             const stripeModule = await import("../integrations/stripe.js");
@@ -166,6 +169,8 @@ export const getPaymentById = asyncHandler(async (req, res) => {
                 } else if (session && session.status === "expired") {
                     payment.status = "failed";
                     await payment.save();
+                } else if (session && session.status === "open" && isBuyer) {
+                    clientSecret = session.client_secret;
                 }
             } else {
                 const intent = await stripe.paymentIntents.retrieve(payment.transactionId);
@@ -175,6 +180,8 @@ export const getPaymentById = asyncHandler(async (req, res) => {
                 } else if (intent && intent.status === "canceled") {
                     payment.status = "failed";
                     await payment.save();
+                } else if (intent && intent.status !== "succeeded" && intent.status !== "canceled" && isBuyer) {
+                    clientSecret = intent.client_secret;
                 }
             }
         } catch (err) {
@@ -182,7 +189,12 @@ export const getPaymentById = asyncHandler(async (req, res) => {
         }
     }
 
-    res.status(200).json({ status: "success", data: { payment } });
+    const paymentObj = payment.toJSON ? payment.toJSON() : payment;
+    if (clientSecret) {
+        paymentObj.clientSecret = clientSecret;
+    }
+
+    res.status(200).json({ status: "success", data: { payment: paymentObj } });
 });
 
 /**

@@ -1,6 +1,7 @@
 import stripe from "../integrations/stripe.js";
 import Payment from "../models/Payment.js";
 import User from "../models/User.js";
+import Post from "../models/Post.js";
 import AppError from "../utils/AppError.js";
 import { env } from "../config/env.js";
 import { getIO } from "../config/socket.js";
@@ -35,6 +36,18 @@ export const createPaymentIntent = async ({
     shippingAddress,
     clientUrl: customClientUrl,
 }) => {
+    if (postId) {
+        const post = await Post.findById(postId).select("author status").lean();
+        if (post) {
+            if (String(post.author) === String(buyerId)) {
+                throw new AppError("You cannot purchase your own listing.", 400);
+            }
+            if (post.status !== "active") {
+                throw new AppError("This listing is no longer available for purchase.", 400);
+            }
+        }
+    }
+
     const buyer = await User.findById(buyerId).select("email phoneNumber firstName lastName").lean();
     const resolvedPhone = phoneNumber || buyer?.phoneNumber || "";
 

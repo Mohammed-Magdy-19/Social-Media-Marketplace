@@ -195,15 +195,53 @@ export const getUploads = asyncHandler(async (req, res) => {
 
     if (resourceType) filter.resourceType = resourceType;
     if (associatedEntity) filter.associatedEntity = associatedEntity;
+    if (req.query.search) {
+        const searchRegex = new RegExp(req.query.search, "i");
+        filter.$or = [
+            { publicId: searchRegex },
+            { mimeType: searchRegex },
+            { url: searchRegex },
+        ];
+    }
 
     const files = await File.find(filter)
-        .populate("owner", "username avatar")
+        .populate("owner", "username avatar firstName lastName")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit + 1)
         .lean();
 
-    res.status(200).json(buildPaginatedResponse(files, page, limit));
+    const formattedFiles = files.map((file) => {
+        const ownerName = file.owner
+            ? file.owner.firstName && file.owner.lastName
+                ? `${file.owner.firstName} ${file.owner.lastName}`.trim()
+                : file.owner.username
+            : "Unknown";
+        return {
+            ...file,
+            id: file._id,
+            name: file.publicId ? file.publicId.split("/").pop() : "Asset",
+            kind:
+                file.associatedEntity === "avatar"
+                    ? "avatar"
+                    : file.resourceType === "video"
+                    ? "video"
+                    : file.mimeType?.includes("pdf") || file.resourceType === "raw"
+                    ? "document"
+                    : "image",
+            size: typeof file.fileSize === "number" && !isNaN(file.fileSize) ? file.fileSize : 0,
+            fileSize: typeof file.fileSize === "number" && !isNaN(file.fileSize) ? file.fileSize : 0,
+            owner: file.owner
+                ? {
+                      ...file.owner,
+                      id: file.owner._id,
+                      name: ownerName,
+                  }
+                : file.owner,
+        };
+    });
+
+    res.status(200).json(buildPaginatedResponse(formattedFiles, page, limit));
 });
 
 /**

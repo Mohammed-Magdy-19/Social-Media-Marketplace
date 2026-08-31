@@ -5,6 +5,8 @@ import User from "../models/User.js";
 import Message from "../models/Message.js";
 import Conversation from "../models/Conversation.js";
 
+import { corsOptions } from "./env.js";
+
 let io;
 
 /**
@@ -39,10 +41,8 @@ const extractToken = (socket) => {
  */
 export const initSocket = (httpServer) => {
     io = new Server(httpServer, {
-        cors: {
-            origin: process.env.CLIENT_URL || "*",
-            credentials: true,
-        },
+        cors: corsOptions,
+        transports: ["websocket", "polling"],
     });
 
     /**
